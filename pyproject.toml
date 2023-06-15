@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "gundi-core"
+version = "1.0.0"
+description = ""
+authors = ["Mariano M <marianom@earthranger.com>"]
+readme = "README.md"
+packages = [{include = "gundi_core"}]
+
+[tool.poetry.dependencies]
+python = "^3.7"
+pydantic = "^1.7.3"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
