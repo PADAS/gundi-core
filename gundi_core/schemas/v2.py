@@ -111,6 +111,115 @@ class Attachment(CDIPBaseModel):
     )
 
 
+class ConnectionOrganization(BaseModel):
+    id: Union[UUID, str] = Field(
+        None,
+        title="Organization ID",
+        description="Id of the organization owning the connection",
+    )
+    name: Optional[str] = Field(
+        "",
+        example="Wild Conservation Organization X",
+        description="Name of the organization owning this connection",
+    )
+    description: Optional[str] = Field(
+        "",
+        example="An organization in X dedicated to protect YZ..",
+        description="Description of the organization owning this connection",
+    )
+
+
+class ConnectionIntegration(BaseModel):
+    id: Union[UUID, str] = Field(
+        None,
+        title="Integration ID",
+        description="Id of an integration associated to the connection",
+    )
+    name: Optional[str] = Field(
+        "",
+        example="X Data Provider for Y Reserve",
+        description="Route name",
+    )
+    type: Optional[str] = Field(
+        "",
+        example="earth_ranger",
+        description="natural key of an integration type",
+    )
+    base_url: Optional[str] = Field(
+        "",
+        example="https://easterisland.pamdas.org/",
+        description="Base URL of the third party system associated with this integration.",
+    )
+    status: Optional[str] = Field(
+        "unknown",
+        example="healthy",
+        description="Computed status representing if the integration is working properly or not",
+    )
+
+
+class ConnectionRoute(BaseModel):
+    id: Union[UUID, str] = Field(
+        None,
+        title="Route ID",
+        description="Id of a route associated to the connection",
+    )
+    name: Optional[str] = Field(
+        "",
+        example="X Animal collars to Y",
+        description="Route name",
+    )
+
+
+class Connection(BaseModel):
+    id: Union[UUID, str] = Field(
+        None,
+        title="Connection ID",
+        description="Id of the connection",
+    )
+    provider: ConnectionIntegration
+    destinations: Optional[List[ConnectionIntegration]]
+    routing_rules: Optional[List[ConnectionRoute]]
+    default_route: Optional[ConnectionRoute]
+    owner: Optional[ConnectionOrganization]
+    status: Optional[str] = Field(
+        "unknown",
+        example="healthy",
+        description="Aggregate status representing if the connection is working properly or not",
+    )
+
+
+class RouteConfiguration(BaseModel):
+    id: Union[UUID, str] = Field(
+        None,
+        title="Route Configuration ID",
+        description="Id of the configuration associated with the route",
+    )
+    name: Optional[str] = Field(
+        "",
+        example="Event Type Mappings",
+        description="A descriptive name for the configuration",
+    )
+    data: Optional[Dict[str, Any]] = {}
+
+
+class Route(BaseModel):
+    id: Union[UUID, str] = Field(
+        None,
+        title="Route ID",
+        description="Id of the route",
+    )
+    name: Optional[str] = Field(
+        "",
+        example="X Route for Y",
+        description="Route name",
+    )
+    owner: Optional[Union[UUID, str]]
+    data_providers: Optional[List[ConnectionIntegration]]
+    destinations: Optional[List[ConnectionIntegration]]
+    configuration: Optional[RouteConfiguration]
+    additional: Optional[Dict[str, Any]] = {}
+
+
 models_by_stream_type = {
     StreamPrefixEnum.event: Event,
     StreamPrefixEnum.attachment: Attachment,
