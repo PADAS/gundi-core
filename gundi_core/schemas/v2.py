@@ -86,7 +86,7 @@ class Event(GundiBaseModel):
         return val
 
 
-class Attachment(CDIPBaseModel):
+class Attachment(GundiBaseModel):
     source_id: Optional[Union[UUID, str]] = Field(
         None,
         title="Source ID",
@@ -111,7 +111,7 @@ class Attachment(CDIPBaseModel):
     )
 
 
-class ConnectionOrganization(BaseModel):
+class Organization(BaseModel):
     id: Union[UUID, str] = Field(
         None,
         title="Organization ID",
@@ -138,7 +138,7 @@ class ConnectionIntegration(BaseModel):
     name: Optional[str] = Field(
         "",
         example="X Data Provider for Y Reserve",
-        description="Route name",
+        description="Connection name (Data Provider)",
     )
     type: Optional[str] = Field(
         "",
@@ -180,7 +180,7 @@ class Connection(BaseModel):
     destinations: Optional[List[ConnectionIntegration]]
     routing_rules: Optional[List[ConnectionRoute]]
     default_route: Optional[ConnectionRoute]
-    owner: Optional[ConnectionOrganization]
+    owner: Optional[Organization]
     status: Optional[str] = Field(
         "unknown",
         example="healthy",
@@ -218,6 +218,130 @@ class Route(BaseModel):
     destinations: Optional[List[ConnectionIntegration]]
     configuration: Optional[RouteConfiguration]
     additional: Optional[Dict[str, Any]] = {}
+
+
+class IntegrationAction(BaseModel):
+    id: Union[UUID, str] = Field(
+        None,
+        title="Integration Action ID",
+        description="Id of an integration in Gundi",
+    )
+    type: Optional[str] = Field(
+        "",
+        example="pull",
+        description="Free text to allow grouping and filtering actions",
+    )
+    name: Optional[str] = Field(
+        "",
+        example="Pull Events",
+        description="A human-readable name for the action",
+    )
+    value: Optional[str] = Field(
+        "",
+        example="pull_events",
+        description="Short text id for the action, to be used programmatically",
+    )
+    description: Optional[str] = Field(
+        "",
+        example="Pull Events from X system",
+        description="Description of the action",
+    )
+    action_schema: Optional[Dict[str, Any]] = Field(
+        {},
+        alias="schema",
+        example="{}",
+        description="Schema definition of any configuration required for this action, in jsonschema format.",
+    )
+
+
+class IntegrationActionSummery(BaseModel):
+    id: Union[UUID, str] = Field(
+        None,
+        title="Integration Action ID",
+        description="Id of an integration in Gundi",
+    )
+    type: Optional[str] = Field(
+        "",
+        example="pull",
+        description="Free text to allow grouping and filtering actions",
+    )
+    name: Optional[str] = Field(
+        "",
+        example="Pull Events",
+        description="A human-readable name for the action",
+    )
+    value: Optional[str] = Field(
+        "",
+        example="pull_events",
+        description="Short text id for the action, to be used programmatically",
+    )
+
+
+class IntegrationType(BaseModel):
+    id: Union[UUID, str] = Field(
+        None,
+        title="Integration Type ID",
+        description="Id of an integration in Gundi",
+    )
+    name: Optional[str] = Field(
+        "",
+        example="EarthRanger",
+        description="Name of the third-party system or technology",
+    )
+    description: Optional[str] = Field(
+        "",
+        example="EarthRanger is a software solution for wildlife monitoring and protection in real-time.",
+        description="Description of the third-party system or technology",
+    )
+    actions: Optional[List[IntegrationAction]]
+
+
+class IntegrationActionConfiguration(BaseModel):
+    id: Union[UUID, str] = Field(
+        None,
+        title="Configuration ID",
+        description="Id of the configuration",
+    )
+    integration: Union[UUID, str] = Field(
+        None,
+        title="Integration ID",
+        description="Id of the integration that this configuration is for",
+    )
+    action: IntegrationActionSummery
+    data: Optional[Dict[str, Any]] = {}
+
+
+class Integration(BaseModel):
+    id: Union[UUID, str] = Field(
+        None,
+        title="Integration ID",
+        description="Id of an integration in Gundi",
+    )
+    name: Optional[str] = Field(
+        "",
+        example="X Data Provider for Y Reserve",
+        description="Route name",
+    )
+    type: IntegrationType
+    base_url: Optional[str] = Field(
+        "",
+        example="https://easterisland.pamdas.org/",
+        description="Base URL of the third party system associated with this integration.",
+    )
+    enabled: Optional[bool] = Field(
+        True,
+        example="true",
+        description="Enable/Disable this integration",
+    )
+    owner: Organization
+    configurations: Optional[List[IntegrationActionConfiguration]]
+    default_route: Optional[ConnectionRoute]
+    additional: Optional[Dict[str, Any]] = {}
+    status: Optional[Dict[str, Any]] = Field(  # ToDo: Review once Activity/Monitoring is implemented
+        {},
+        example="{}",
+        description="A json object with detailed information about the integration health status",
+    )
 
 
 models_by_stream_type = {

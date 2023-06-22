@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "gundi-core"
-version = "1.0.2"
+version = "1.0.3"
 description = ""
 authors = ["Mariano M <marianom@earthranger.com>"]
 readme = "README.md"
