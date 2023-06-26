@@ -343,6 +343,39 @@ class Integration(BaseModel):
     )
 
 
+# Earth Ranger Supported Actions & Configuration Schemas
+class EarthRangerActions(str, Enum):
+    AUTHENTICATE = "auth"
+    PUSH_EVENT = "push_event"
+    # ToDo. Add more as we support them
+
+
+class ERAuthActionConfig(BaseModel):
+    username: Optional[str] = Field(
+        "",
+        example="user@pamdas.org",
+        description="Username used to authenticate against Earth Ranger API",
+    )
+    password: Optional[str] = Field(
+        "",
+        example="passwd1234abc",
+        description="Password used to authenticate against Earth Ranger API",
+    )
+    token: Optional[str] = Field(
+        "",
+        example="1b4c1e9c-5ee0-44db-c7f1-177ede2f854a",
+        description="Token used to authenticate against Earth Ranger API",
+    )
+
+
+class ERPushEventActionConfig(BaseModel):
+    event_type: Optional[str] = Field(
+        "",
+        example="animal_sighting",
+        description="Event type to be applied to event sent to Earth Ranger (Optional).",
+    )
+
+
 models_by_stream_type = {
     StreamPrefixEnum.event: Event,
     StreamPrefixEnum.attachment: Attachment,
