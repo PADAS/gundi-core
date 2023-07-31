@@ -128,6 +128,37 @@ class Organization(BaseModel):
     )
 
 
+class ConnectionIntegrationType(BaseModel):
+    id: Union[UUID, str] = Field(
+        None,
+        title="Integration Type ID",
+        description="Id of an integration in Gundi",
+    )
+    name: Optional[str] = Field(
+        "",
+        example="EarthRanger",
+        description="Name of the third-party system or technology",
+    )
+    value: Optional[str] = Field(
+        "",
+        example="earth_ranger",
+        description="Natural key for the technology type",
+    )
+
+
+class ConnectionIntegrationOwner(BaseModel):
+    id: Union[UUID, str] = Field(
+        None,
+        title="Organization ID",
+        description="Id of the organization owning the connection",
+    )
+    name: Optional[str] = Field(
+        "",
+        example="Wild Conservation Organization X",
+        description="Name of the organization owning this connection",
+    )
+
+
 class ConnectionIntegration(BaseModel):
     id: Union[UUID, str] = Field(
         None,
@@ -139,11 +170,8 @@ class ConnectionIntegration(BaseModel):
         example="X Data Provider for Y Reserve",
         description="Connection name (Data Provider)",
     )
-    type: Optional[str] = Field(
-        "",
-        example="earth_ranger",
-        description="natural key of an integration type",
-    )
+    type: Optional[ConnectionIntegrationType]
+    owner: Optional[ConnectionIntegrationOwner]
     base_url: Optional[str] = Field(
         "",
         example="https://easterisland.pamdas.org/",
@@ -286,6 +314,11 @@ class IntegrationType(BaseModel):
         "",
         example="EarthRanger",
         description="Name of the third-party system or technology",
+    )
+    value: Optional[str] = Field(
+        "",
+        example="earth_ranger",
+        description="Natural key for the technology type",
     )
     description: Optional[str] = Field(
         "",
