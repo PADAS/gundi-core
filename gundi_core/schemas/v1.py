@@ -35,10 +35,6 @@ class DestinationTypes(Enum):
     Movebank = 'movebank'
 
 
-class SensorTypes(Enum):
-    movebank_gps = "GPS"
-
-
 class TokenData(BaseModel):
     subject: Optional[str] = None
     scopes: List[str] = []
