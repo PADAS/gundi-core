@@ -32,6 +32,11 @@ class DestinationTypes(Enum):
     EarthRanger = "earth_ranger"
     SmartConnect = "smart_connect"
     WPSWatch = "wps_watch"
+    Movebank = 'movebank'
+
+
+class SensorTypes(Enum):
+    movebank_gps = "GPS"
 
 
 class TokenData(BaseModel):
