@@ -89,7 +89,7 @@ class Observation(GundiBaseModel):
 
         schema_extra = {
             "example": {
-                "device_id": "018910980",
+                "source_id": "018910980",
                 "name": "Logistics Truck A",
                 "type": "tracking-device",
                 "recorded_at": "2021-03-27 11:15:00+0200",
