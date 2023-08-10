@@ -67,7 +67,7 @@ class Observation(GundiBaseModel):
     )
     recorded_at: datetime = Field(
         ...,
-        title="Timestamp for the data, preferrably in ISO format.",
+        title="Timestamp for the data, preferably in ISO format.",
         example="2021-03-21 12:01:02-0700",
     )
     location: Location
@@ -76,7 +76,7 @@ class Observation(GundiBaseModel):
         title="Additional Data",
         description="A dictionary of extra data that will be passed to destination systems.",
     )
-    observation_type: str = Field(StreamPrefixEnum.position.value, const=True)
+    observation_type: str = Field(StreamPrefixEnum.observation.value, const=True)
 
     @validator("recorded_at")
     def clean_recorded_at(cls, val):
@@ -85,7 +85,7 @@ class Observation(GundiBaseModel):
         return val
 
     class Config:
-        title = "Position"
+        title = "Observation"
 
         schema_extra = {
             "example": {
