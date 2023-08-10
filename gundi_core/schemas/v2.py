@@ -44,7 +44,7 @@ class GundiBaseModel(BaseModel):
     )
 
 
-class Position(GundiBaseModel):
+class Observation(GundiBaseModel):
     device_id: Optional[str] = Field(
         "none",
         example="901870234",
@@ -93,7 +93,7 @@ class Position(GundiBaseModel):
                 "name": "Logistics Truck A",
                 "type": "tracking-device",
                 "recorded_at": "2021-03-27 11:15:00+0200",
-                "location": {"x": 35.43902, "y": -1.59083},
+                "location": {"lon": 35.43902, "lat": -1.59083},
                 "additional": {
                     "voltage": "7.4",
                     "fuel_level": 71,
