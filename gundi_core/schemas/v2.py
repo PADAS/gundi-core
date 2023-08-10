@@ -7,7 +7,7 @@ from enum import Enum
 
 
 class StreamPrefixEnum(str, Enum):
-    position = "ps"
+    observation = "obv"
     event = "ev"
     attachment = "att"
 
@@ -45,10 +45,10 @@ class GundiBaseModel(BaseModel):
 
 
 class Observation(GundiBaseModel):
-    device_id: Optional[str] = Field(
+    source_id: Optional[str] = Field(
         "none",
         example="901870234",
-        description="A unique identifier of the device associated with this data.",
+        description="A unique identifier of the source associated with this data.",
     )
     name: Optional[str] = Field(
         None,
@@ -557,7 +557,7 @@ class DispatchedObservation(BaseModel):
 
 
 models_by_stream_type = {
-    StreamPrefixEnum.position: Position,
+    StreamPrefixEnum.observation: Observation,
     StreamPrefixEnum.event: Event,
     StreamPrefixEnum.attachment: Attachment,
 }
