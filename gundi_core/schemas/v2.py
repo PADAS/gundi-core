@@ -52,17 +52,17 @@ class Observation(GundiBaseModel):
     )
     name: Optional[str] = Field(
         None,
-        title="An optional, human-friendly name for the associated device.",
+        title="An optional, human-friendly name for the associated source.",
         example="Security Vehicle A",
     )
     type: Optional[str] = Field(
         "tracking-device",
-        title="Type identifier for the associated device.",
+        title="Type identifier for the associated source.",
         example="tracking-device",
     )
     subject_type: Optional[str] = Field(
         None,
-        title="Type identifier for the subjected associated to the device.",
+        title="Type identifier for the subjected associated to the source.",
         example="giraffe",
     )
     recorded_at: datetime = Field(
