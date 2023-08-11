@@ -7,6 +7,7 @@ from enum import Enum
 
 
 class StreamPrefixEnum(str, Enum):
+    observation = "obv"
     event = "ev"
     attachment = "att"
 
@@ -41,6 +42,65 @@ class GundiBaseModel(BaseModel):
         title="Annotations",
         description="A dictionary of extra data that will be passed to destination systems.",
     )
+
+
+class Observation(GundiBaseModel):
+    source_id: Optional[str] = Field(
+        "none",
+        example="901870234",
+        description="A unique identifier of the source associated with this data.",
+    )
+    name: Optional[str] = Field(
+        None,
+        title="An optional, human-friendly name for the associated source.",
+        example="Security Vehicle A",
+    )
+    type: Optional[str] = Field(
+        "tracking-device",
+        title="Type identifier for the associated source.",
+        example="tracking-device",
+    )
+    subject_type: Optional[str] = Field(
+        None,
+        title="Type identifier for the subjected associated to the source.",
+        example="giraffe",
+    )
+    recorded_at: datetime = Field(
+        ...,
+        title="Timestamp for the data, preferably in ISO format.",
+        example="2021-03-21 12:01:02-0700",
+    )
+    location: Location
+    additional: Optional[Dict[str, Any]] = Field(
+        None,
+        title="Additional Data",
+        description="A dictionary of extra data that will be passed to destination systems.",
+    )
+    observation_type: str = Field(StreamPrefixEnum.observation.value, const=True)
+
+    @validator("recorded_at")
+    def clean_recorded_at(cls, val):
+        if not val.tzinfo:
+            val = val.replace(tzinfo=timezone.utc)
+        return val
+
+    class Config:
+        title = "Observation"
+
+        schema_extra = {
+            "example": {
+                "source_id": "018910980",
+                "name": "Logistics Truck A",
+                "type": "tracking-device",
+                "recorded_at": "2021-03-27 11:15:00+0200",
+                "location": {"lon": 35.43902, "lat": -1.59083},
+                "additional": {
+                    "voltage": "7.4",
+                    "fuel_level": 71,
+                    "speed": "41 kph",
+                },
+            }
+        }
 
 
 class Event(GundiBaseModel):
@@ -497,6 +557,7 @@ class DispatchedObservation(BaseModel):
 
 
 models_by_stream_type = {
+    StreamPrefixEnum.observation: Observation,
     StreamPrefixEnum.event: Event,
     StreamPrefixEnum.attachment: Attachment,
 }
