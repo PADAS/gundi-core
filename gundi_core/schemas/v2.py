@@ -45,8 +45,8 @@ class GundiBaseModel(BaseModel):
 
 
 class Observation(GundiBaseModel):
-    source_id: Optional[str] = Field(
-        "None",
+    source_id: Optional[Union[UUID, str]] = Field(
+        None,
         example="bc14b256-dec0-4363-831d-39d0d2d85d50",
         description="A unique identifier of the source associated with this data.",
     )
