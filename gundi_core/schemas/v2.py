@@ -46,12 +46,12 @@ class GundiBaseModel(BaseModel):
 
 class Observation(GundiBaseModel):
     source_id: Optional[str] = Field(
-        "none",
-        example="901870234",
+        "None",
+        example="bc14b256-dec0-4363-831d-39d0d2d85d50",
         description="A unique identifier of the source associated with this data.",
     )
     external_source_id: Optional[str] = Field(
-        "none",
+        "None",
         example="901870234",
         description="The manufacturer provided ID for the Source associated with this data (a.k.a. device).",
     )
@@ -94,7 +94,7 @@ class Observation(GundiBaseModel):
 
         schema_extra = {
             "example": {
-                "source_id": "018910980",
+                "source_id": "bc14b256-dec0-4363-831d-39d0d2d85d50",
                 "external_source_id": "901870234",
                 "source_name": "Logistics Truck A",
                 "type": "tracking-device",
