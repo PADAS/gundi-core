@@ -45,12 +45,17 @@ class GundiBaseModel(BaseModel):
 
 
 class Observation(GundiBaseModel):
-    source_id: Optional[str] = Field(
-        "none",
-        example="901870234",
+    source_id: Optional[Union[UUID, str]] = Field(
+        None,
+        example="bc14b256-dec0-4363-831d-39d0d2d85d50",
         description="A unique identifier of the source associated with this data.",
     )
-    name: Optional[str] = Field(
+    external_source_id: Optional[str] = Field(
+        "None",
+        example="901870234",
+        description="The manufacturer provided ID for the Source associated with this data (a.k.a. device).",
+    )
+    source_name: Optional[str] = Field(
         None,
         title="An optional, human-friendly name for the associated source.",
         example="Security Vehicle A",
@@ -89,8 +94,9 @@ class Observation(GundiBaseModel):
 
         schema_extra = {
             "example": {
-                "source_id": "018910980",
-                "name": "Logistics Truck A",
+                "source_id": "bc14b256-dec0-4363-831d-39d0d2d85d50",
+                "external_source_id": "901870234",
+                "source_name": "Logistics Truck A",
                 "type": "tracking-device",
                 "recorded_at": "2021-03-27 11:15:00+0200",
                 "location": {"lon": 35.43902, "lat": -1.59083},
