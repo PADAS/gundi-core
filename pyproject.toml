@@ -1,9 +1,12 @@
 [tool.poetry]
 name = "gundi-core"
-version = "1.2.2"
+version = "1.2.3"
 
 description = ""
-authors = ["Mariano M <marianom@earthranger.com>"]
+authors = [
+    "Mariano M <marianom@earthranger.com>",
+    "Victor Garcia <victorg@earthranger.com>"
+]
 readme = "README.md"
 packages = [{include = "gundi_core"}]
 
