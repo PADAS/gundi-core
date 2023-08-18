@@ -475,6 +475,53 @@ class ERPushEventActionConfig(BaseModel):
     )
 
 
+# Movebank Supported Actions & Configuration Schemas
+class MovebankActions(str, Enum):
+    AUTHENTICATE = "auth"
+    PERMISSIONS = "permissions"
+    PUSH_OBSERVATIONS = "push_observations"
+    # ToDo. Add more as we support them
+
+
+class MBAuthActionConfig(BaseModel):
+    username: str = Field(
+        example="movebankadminuser",
+        description="Username used to authenticate against Movebank API",
+    )
+    password: str = Field(
+        example="passwd1234abc",
+        description="Password used to authenticate against Movebank API",
+    )
+
+
+class MBUserPermission(BaseModel):
+    username: str = Field(
+        example="movebankuser",
+        description="Username used to login in Movebank",
+    )
+    tag_id: str = Field(
+        example="awt.1320894.cc53b809784e406db9cfd8dcbc624985",
+        description="Tag ID, to grant the user access to its data.",
+    )
+
+
+class MBPermissionsActionConfig(BaseModel):
+    study: str = Field(
+        "gundi",
+        example="gundi",
+        description="Name of the movebank study",
+    )
+    permissions: Optional[List[MBUserPermission]]
+
+
+class MBPushObservationsActionConfig(BaseModel):
+    feed: str = Field(
+        "gundi/earthranger",
+        example="gundi/earthranger",
+        description="Name of the movebank feed",
+    )
+
+
 class GundiTrace(BaseModel):
     object_id: Union[UUID, str] = Field(
         None,
