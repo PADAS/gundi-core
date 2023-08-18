@@ -484,34 +484,30 @@ class MovebankActions(str, Enum):
 
 
 class MBAuthActionConfig(BaseModel):
-    username: Optional[str] = Field(
-        "",
+    username: str = Field(
         example="movebankadminuser",
         description="Username used to authenticate against Movebank API",
     )
-    password: Optional[str] = Field(
-        "",
+    password: str = Field(
         example="passwd1234abc",
         description="Password used to authenticate against Movebank API",
     )
 
 
 class MBUserPermission(BaseModel):
-    username: Optional[str] = Field(
-        "",
+    username: str = Field(
         example="movebankuser",
         description="Username used to login in Movebank",
     )
-    tag_id: Optional[str] = Field(
-        "",
+    tag_id: str = Field(
         example="awt.1320894.cc53b809784e406db9cfd8dcbc624985",
         description="Tag ID, to grant the user access to its data.",
     )
 
 
 class MBPermissionsActionConfig(BaseModel):
-    study: Optional[str] = Field(
-        "",
+    study: str = Field(
+        "gundi",
         example="gundi",
         description="Name of the movebank study",
     )
@@ -519,8 +515,8 @@ class MBPermissionsActionConfig(BaseModel):
 
 
 class MBPushObservationsActionConfig(BaseModel):
-    feed: Optional[str] = Field(
-        "",
+    feed: str = Field(
+        "gundi/earthranger",
         example="gundi/earthranger",
         description="Name of the movebank feed",
     )
