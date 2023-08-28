@@ -496,13 +496,18 @@ class MBAuthActionConfig(BaseModel):
 
 class MBUserPermission(BaseModel):
     username: str = Field(
+        alias="login",
         example="movebankuser",
         description="Username used to login in Movebank",
     )
     tag_id: str = Field(
+        alias="tag",
         example="awt.1320894.cc53b809784e406db9cfd8dcbc624985",
         description="Tag ID, to grant the user access to its data.",
     )
+
+    class Config:
+        allow_population_by_field_name = True
 
 
 class MBPermissionsActionConfig(BaseModel):
