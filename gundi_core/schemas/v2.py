@@ -125,7 +125,7 @@ class Event(GundiBaseModel):
         title="Timestamp for the data, preferrably in ISO format.",
         example="2021-03-21 12:01:02-0700",
     )
-    location: Location
+    location: Optional[Location]
     title: Optional[str] = Field(
         None,
         title="Event title",
