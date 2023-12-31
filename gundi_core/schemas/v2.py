@@ -516,6 +516,10 @@ class MBPermissionsActionConfig(BaseModel):
         example="gundi",
         description="Name of the movebank study",
     )
+    default_movebank_usernames: List[str] = Field(
+        default_factory=list,
+        description="Movebank usernames allowed to access this study"
+    )
     permissions: Optional[List[MBUserPermission]]
 
 
