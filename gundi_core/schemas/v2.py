@@ -530,7 +530,7 @@ class MBPushObservationsActionConfig(BaseModel):
         description="Name of the movebank feed",
     )
 
-# Movebank Supported Actions & Configuration Schemas
+# SMART Supported Actions & Configuration Schemas
 class SMARTActions(str, Enum):
     AUTHENTICATE = "auth"
     PUSH_EVENTS = "push_events"
@@ -548,7 +548,7 @@ class SMARTAuthActionConfig(BaseModel):
     )
     version: Optional[str] = "7.5"
 
-# Smart Connect Outbound configuration models.
+# SMART Connect Outbound configuration models.
 class SMARTCategoryPair(BaseModel):
     event_type: str
     category_path: str
