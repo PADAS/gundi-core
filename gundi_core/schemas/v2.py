@@ -530,6 +530,55 @@ class MBPushObservationsActionConfig(BaseModel):
         description="Name of the movebank feed",
     )
 
+# Movebank Supported Actions & Configuration Schemas
+class SMARTActions(str, Enum):
+    AUTHENTICATE = "auth"
+    PUSH_EVENTS = "push_events"
+    # ToDo. Add more as we support them
+
+
+class SMARTAuthActionConfig(BaseModel):
+    login: str = Field(
+        example="smartuser",
+        description="Username used to authenticate against SMART Connect server",
+    )
+    password: str = Field(
+        example="passwd1234abc",
+        description="Password used to authenticate against SMART Connect server",
+    )
+    version: Optional[str] = "7.5"
+
+# Smart Connect Outbound configuration models.
+class SMARTCategoryPair(BaseModel):
+    event_type: str
+    category_path: str
+
+class SMARTOptionMap(BaseModel):
+    from_key: str
+    to_key: str
+
+class SMARTAttributeMapper(BaseModel):
+    from_key: str
+    to_key: str
+    type: Optional[str] = "string"
+    options_map: Optional[List[SMARTOptionMap]]
+    default_option: Optional[str]
+    event_types: Optional[List[str]]
+
+
+class SMARTTransformationRules(BaseModel):
+    category_map: Optional[List[SMARTCategoryPair]] = []
+    attribute_map: Optional[List[SMARTAttributeMapper]] = []
+
+
+class SMARTPushEventActionConfig(BaseModel):
+    ca_uuid: Optional[UUID]
+    ca_uuids: Optional[List[UUID]]
+    configurable_models_enabled: Optional[List[UUID]]
+    configurable_models_lists: Optional[dict]
+    transformation_rules: Optional[SMARTTransformationRules]
+    timezone: Optional[str]
+
 
 class GundiTrace(BaseModel):
     object_id: Union[UUID, str] = Field(
@@ -583,7 +632,7 @@ class GundiTrace(BaseModel):
     )
 
 
-# Models used by the Dispatchers
+# Models used by the Dispatchers to emit system events
 class DispatchedObservation(BaseModel):
     gundi_id: Union[UUID, str] = Field(
         None,
