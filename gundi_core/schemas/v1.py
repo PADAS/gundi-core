@@ -310,8 +310,8 @@ class ERPatrolSegment(BaseModel):
     id: str
     leader: Optional[ERSubject]
     patrol_type: str
-    schedule_start: Optional[dict]
-    schedule_end: Optional[dict]
+    scheduled_start: Optional[datetime]
+    scheduled_end: Optional[datetime]
     start_location: Optional[ERLocation]
     time_range: Optional[dict]
     updates: Optional[List[ERUpdate]]
