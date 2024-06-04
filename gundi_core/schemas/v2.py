@@ -347,7 +347,7 @@ class IntegrationAction(BaseModel):
     )
 
 
-class IntegrationActionSummery(BaseModel):
+class IntegrationActionSummary(BaseModel):
     id: Union[UUID, str] = Field(
         None,
         title="Integration Action ID",
@@ -369,6 +369,79 @@ class IntegrationActionSummery(BaseModel):
         description="Short text id for the action, to be used programmatically",
     )
 
+class IntegrationWebhook(BaseModel):
+    id: Union[UUID, str] = Field(
+        None,
+        title="Integration Action ID",
+        description="Id of an integration in Gundi",
+    )
+    name: Optional[str] = Field(
+        "",
+        example="Generic Webhook",
+        description="A human-readable name for the webhook",
+    )
+    value: Optional[str] = Field(
+        "",
+        example="generic_webhook",
+        description="Short text id for the webhook, to be used programmatically",
+    )
+    description: Optional[str] = Field(
+        "",
+        example="Generic Webhook for all events",
+        description="Description of the webhook",
+    )
+    webhook_schema: Optional[Dict[str, Any]] = Field(
+        {},
+        alias="schema",
+        example="""
+        {
+            "type": "object",
+            "title": "Generic JSON Transformation Config",
+            "required": [
+                "json_schema",
+                "output_type",
+                "jq_filter"
+            ],
+            "properties": {
+                "json_schema": {
+                    "type": "object",
+                    "title": "Webhook Data JSON Schema",
+                    "description": "Define the schema of the webhook data as json schema.",
+                },
+                "jq_filter": {
+                    "type": "string",
+                    "title": "JQ Transformation Filter",
+                    "default": ".",
+                    "example": "{source: .deviceId,source_name: .name, type: .deviceType, recorded_at: (.trackPoint.time / 1000 | todateiso8601), location: {lat: .trackPoint.point.x, lon: .trackPoint.point.y},additional: {teamId: .teamId}}",
+                    "description": "JQ filter to transform JSON data."
+                },
+                "output_type": {
+                    "type": "string",
+                    "title": "Output Type",
+                    "description": "Output type for the transformed data: 'obv' or 'ev'"
+                }
+            }
+        }
+        """,
+        description="Schema definition of any configuration required for this webhook, in jsonschema format.",
+    )
+
+class IntegrationWebhookSummary(BaseModel):
+    id: Union[UUID, str] = Field(
+        None,
+        title="Integration Action ID",
+        description="Id of an integration in Gundi",
+    )
+    name: Optional[str] = Field(
+        "",
+        example="Generic Webhook",
+        description="A human-readable name for the webhook",
+    )
+    value: Optional[str] = Field(
+        "",
+        example="generic_webhook",
+        description="Short text id for the webhook, to be used programmatically",
+    )
 
 class IntegrationType(BaseModel):
     id: Union[UUID, str] = Field(
@@ -392,6 +465,7 @@ class IntegrationType(BaseModel):
         description="Description of the third-party system or technology",
     )
     actions: Optional[List[IntegrationAction]]
+    webhook: Optional[IntegrationWebhook]
 
 
 class IntegrationActionConfiguration(BaseModel):
@@ -405,7 +479,22 @@ class IntegrationActionConfiguration(BaseModel):
         title="Integration ID",
         description="Id of the integration that this configuration is for",
     )
-    action: IntegrationActionSummery
+    action: IntegrationActionSummary
+    data: Optional[Dict[str, Any]] = {}
+
+
+class WebhookConfiguration(BaseModel):
+    id: Union[UUID, str] = Field(
+        None,
+        title="Configuration ID",
+        description="Id of the configuration",
+    )
+    integration: Union[UUID, str] = Field(
+        None,
+        title="Integration ID",
+        description="Id of the integration that this configuration is for",
+    )
+    webhook: IntegrationWebhookSummary
     data: Optional[Dict[str, Any]] = {}
 
 
@@ -433,6 +522,7 @@ class Integration(BaseModel):
     )
     owner: Organization
     configurations: Optional[List[IntegrationActionConfiguration]]
+    webhook_configuration: Optional[WebhookConfiguration]
     default_route: Optional[ConnectionRoute]
     additional: Optional[Dict[str, Any]] = {}
     status: Optional[Dict[str, Any]] = Field(  # ToDo: Review once Activity/Monitoring is implemented
