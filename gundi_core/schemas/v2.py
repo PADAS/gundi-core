@@ -372,8 +372,8 @@ class IntegrationActionSummary(BaseModel):
 class IntegrationWebhook(BaseModel):
     id: Union[UUID, str] = Field(
         None,
-        title="Integration Action ID",
-        description="Id of an integration in Gundi",
+        title="Integration Webhook ID",
+        description="Id of an webhook in Gundi",
     )
     name: Optional[str] = Field(
         "",
@@ -429,8 +429,8 @@ class IntegrationWebhook(BaseModel):
 class IntegrationWebhookSummary(BaseModel):
     id: Union[UUID, str] = Field(
         None,
-        title="Integration Action ID",
-        description="Id of an integration in Gundi",
+        title="Integration Webhook ID",
+        description="Id of an webhook in Gundi",
     )
     name: Optional[str] = Field(
         "",
