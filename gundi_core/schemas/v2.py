@@ -209,6 +209,9 @@ class ConnectionIntegrationType(BaseModel):
         "",
         example="earth_ranger",
         description="Natural key for the technology type",
+        min_length=2,
+        max_length=200,
+        regex="^[a-z0-9_]+$",
     )
 
 
@@ -333,6 +336,9 @@ class IntegrationAction(BaseModel):
         "",
         example="pull_events",
         description="Short text id for the action, to be used programmatically",
+        min_length=2,
+        max_length=200,
+        regex="^[a-z0-9_]+$",
     )
     description: Optional[str] = Field(
         "",
@@ -367,6 +373,9 @@ class IntegrationActionSummary(BaseModel):
         "",
         example="pull_events",
         description="Short text id for the action, to be used programmatically",
+        min_length=2,
+        max_length=200,
+        regex="^[a-z0-9_]+$",
     )
 
 class IntegrationWebhook(BaseModel):
@@ -384,6 +393,9 @@ class IntegrationWebhook(BaseModel):
         "",
         example="generic_webhook",
         description="Short text id for the webhook, to be used programmatically",
+        min_length=2,
+        max_length=200,
+        regex="^[a-z0-9_]+$",
     )
     description: Optional[str] = Field(
         "",
@@ -441,6 +453,9 @@ class IntegrationWebhookSummary(BaseModel):
         "",
         example="generic_webhook",
         description="Short text id for the webhook, to be used programmatically",
+        min_length=2,
+        max_length=200,
+        regex="^[a-z0-9_]+$",
     )
 
 class IntegrationType(BaseModel):
@@ -458,6 +473,9 @@ class IntegrationType(BaseModel):
         "",
         example="earth_ranger",
         description="Natural key for the technology type",
+        min_length=2,
+        max_length=200,
+        regex="^[a-z0-9_]+$",
     )
     description: Optional[str] = Field(
         "",
