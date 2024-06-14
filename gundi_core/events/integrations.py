@@ -71,11 +71,11 @@ class IntegrationWebhookEvent(BaseModel):
     )
 
 
-class WebhookExecutionStarted(IntegrationActionEvent):
+class WebhookExecutionStarted(IntegrationWebhookEvent):
     pass
 
 
-class WebhookExecutionComplete(IntegrationActionEvent):
+class WebhookExecutionComplete(IntegrationWebhookEvent):
     result: Optional[Dict[str, Any]] = Field(
         None,
         title="Result",
@@ -83,7 +83,7 @@ class WebhookExecutionComplete(IntegrationActionEvent):
     )
 
 
-class WebhookExecutionFailed(IntegrationActionEvent):
+class WebhookExecutionFailed(IntegrationWebhookEvent):
     error: Optional[str] = Field(
         "",
         title="Error",
@@ -92,6 +92,24 @@ class WebhookExecutionFailed(IntegrationActionEvent):
 
 
 class CustomActivityLog(IntegrationActionEvent):
+    title: str = Field(
+        "Custom Log",
+        title="Title",
+        description="A string with the title of the log.",
+    )
+    level: LogLevel = Field(
+        LogLevel.INFO,
+        title="Log Level",
+        description="The level of the log.",
+    )
+    data: Optional[Dict[str, Any]] = Field(
+        None,
+        title="Extra Data",
+        description="A dictionary with extra data to be logged.",
+    )
+
+
+class CustomWebhookLog(IntegrationWebhookEvent):
     title: str = Field(
         "Custom Log",
         title="Title",
@@ -126,7 +144,7 @@ class IntegrationActionFailed(SystemEventBaseModel):
 
 
 class IntegrationWebhookCustomLog(SystemEventBaseModel):
-    payload: CustomActivityLog
+    payload: CustomWebhookLog
 
 
 class IntegrationWebhookStarted(SystemEventBaseModel):
