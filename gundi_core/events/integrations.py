@@ -52,6 +52,45 @@ class ActionExecutionFailed(IntegrationActionEvent):
         description="A string with the error message of the action execution.",
     )
 
+
+class IntegrationWebhookEvent(BaseModel):
+    integration_id: Union[UUID, str] = Field(
+        None,
+        title="Integration ID",
+        description="The unique ID of the Integration.",
+    )
+    webhook_id: str = Field(
+        None,
+        title="Webhook Identifier",
+        description="A string identifier of the webhook of the related integration.",
+    )
+    config_data: Optional[Dict[str, Any]] = Field(
+        None,
+        title="Configuration",
+        description="A dictionary with the configuration used to process the webhook request",
+    )
+
+
+class WebhookExecutionStarted(IntegrationActionEvent):
+    pass
+
+
+class WebhookExecutionComplete(IntegrationActionEvent):
+    result: Optional[Dict[str, Any]] = Field(
+        None,
+        title="Result",
+        description="A dictionary with the result of the webhook execution.",
+    )
+
+
+class WebhookExecutionFailed(IntegrationActionEvent):
+    error: Optional[str] = Field(
+        "",
+        title="Error",
+        description="A string with the error message of the webhook execution.",
+    )
+
+
 class CustomActivityLog(IntegrationActionEvent):
     title: str = Field(
         "Custom Log",
@@ -84,3 +123,19 @@ class IntegrationActionComplete(SystemEventBaseModel):
 
 class IntegrationActionFailed(SystemEventBaseModel):
     payload: ActionExecutionFailed
+
+
+class IntegrationWebhookCustomLog(SystemEventBaseModel):
+    payload: CustomActivityLog
+
+
+class IntegrationWebhookStarted(SystemEventBaseModel):
+    payload: WebhookExecutionStarted
+
+
+class IntegrationWebhookComplete(SystemEventBaseModel):
+    payload: WebhookExecutionComplete
+
+
+class IntegrationWebhookFailed(SystemEventBaseModel):
+    payload: WebhookExecutionFailed
