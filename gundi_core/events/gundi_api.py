@@ -13,6 +13,10 @@ class EventUpdateReceived(SystemEventBaseModel):
     payload: EventUpdate
 
 
+class AttachmentReceived(SystemEventBaseModel):
+    payload: Attachment
+
+
 class ObservationReceived(SystemEventBaseModel):
     payload: Observation
 
