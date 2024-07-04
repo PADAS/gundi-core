@@ -29,3 +29,8 @@ class SystemEventBaseModel(BaseModel):
         json_dict = super().dict(*args, **kwargs)
         json_dict["event_type"] = self.__class__.__name__
         return json_dict
+
+    def json(self, *args, **kwargs):
+        # Call the dict method so extra field like event_type are added
+        return json.dumps(self.dict(*args, **kwargs), default=str)
+
