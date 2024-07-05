@@ -8,7 +8,9 @@ from enum import Enum
 
 class StreamPrefixEnum(str, Enum):
     observation = "obv"
+    observation_update = "obvu"
     event = "ev"
+    event_update = "evu"
     attachment = "att"
 
 
@@ -109,6 +111,16 @@ class Observation(GundiBaseModel):
         }
 
 
+class ObservationUpdate(GundiBaseModel):
+    changes: Optional[Dict[str, Any]] = Field(
+        None,
+        title="Observation Updates",
+        description="A dictionary containing the changes made to the observation.",
+    )
+    observation_type: str = Field(StreamPrefixEnum.observation_update.value, const=True)
+
+
+
 class Event(GundiBaseModel):
     source_id: Optional[Union[UUID, str]] = Field(
         None,
@@ -154,6 +166,15 @@ class Event(GundiBaseModel):
         if not val.tzinfo:
             val = val.replace(tzinfo=timezone.utc)
         return val
+
+
+class EventUpdate(GundiBaseModel):
+    changes: Optional[Dict[str, Any]] = Field(
+        None,
+        title="Event Updates",
+        description="A dictionary containing the changes made to the event.",
+    )
+    observation_type: str = Field(StreamPrefixEnum.observation_update.value, const=True)
 
 
 class Attachment(GundiBaseModel):
