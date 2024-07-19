@@ -234,15 +234,15 @@ class EREvent(CDIPBaseModel):
     owner: str = "na"
     location: Optional[ERLocation]
     time: datetime
-    created_at: datetime
-    updated_at: datetime
-    serial_number: int
+    created_at: Optional[datetime]
+    updated_at: Optional[datetime]
+    serial_number: Optional[int]
     event_type: str
-    priority: int
-    priority_label: str
+    priority: Optional[int]
+    priority_label: Optional[str]
     title: Optional[str]
-    state: EREventState
-    url: str
+    state: EREventState = Field(EREventState.new.value),
+    url: Optional[str]
     event_details: Dict[str, Any]
     patrols: Optional[List[str]]
     files: Optional[List[dict]]
