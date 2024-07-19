@@ -298,11 +298,11 @@ class ERPatrolEvent(BaseModel):
 
 
 class ERObservation(BaseModel):
-    id: str
+    id: Optional[str]
     location: ERLocation
-    created_at: datetime
+    created_at: Optional[datetime]
     recorded_at: datetime
-    source: str
+    source: Optional[str]
     observation_details: Optional[dict]
 
     class Config:
