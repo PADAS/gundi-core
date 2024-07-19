@@ -264,6 +264,9 @@ class EREvent(CDIPBaseModel):
     )
     observation_type: str = Field(StreamPrefixEnum.earthranger_event.value, const=True)
 
+    class Config:
+        extra = "allow"  # To allow adding extra fields with field mappings
+
     @validator("state")
     def clean_sender(cls, val):
         if val == "new":
@@ -301,6 +304,9 @@ class ERObservation(BaseModel):
     recorded_at: datetime
     source: str
     observation_details: Optional[dict]
+
+    class Config:
+        extra = "allow"  # To allow adding extra fields with field mappings
 
 
 class ERPatrolSegment(BaseModel):
