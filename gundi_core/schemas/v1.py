@@ -241,7 +241,7 @@ class EREvent(CDIPBaseModel):
     priority: Optional[int]
     priority_label: Optional[str]
     title: Optional[str]
-    state: EREventState = Field(EREventState.new.value),
+    state: EREventState = Field(EREventState.new.value)
     url: Optional[str]
     event_details: Dict[str, Any]
     patrols: Optional[List[str]]
