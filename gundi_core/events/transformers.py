@@ -1,5 +1,4 @@
-from gundi_core.schemas.v1 import EREvent, ERObservation
-from gundi_core.schemas.v2 import EREventUpdate, ERAttachment
+from gundi_core.schemas.v2 import EREvent, ERObservation, EREventUpdate, ERAttachment
 from .core import SystemEventBaseModel
 
 # Events published by the transformer service
