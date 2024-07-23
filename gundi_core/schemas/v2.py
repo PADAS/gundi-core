@@ -797,16 +797,22 @@ class DispatchedObservation(BaseModel):
     )
 
 
-class ERAttachment(GundiBaseModel):
+class ERAttachment(BaseModel):
     file_path: str
 
+    class Config:
+        extra = "allow"  # To allow adding extra fields with field mappings
 
-class EREventUpdate(GundiBaseModel):
+
+class EREventUpdate(BaseModel):
     changes: Optional[Dict[str, Any]] = Field(
         None,
         title="ER Event Updates",
         description="A dictionary containing the changes made to the ER event.",
     )
+
+    class Config:
+        extra = "allow"  # To allow adding extra fields with field mappings
 
 
 models_by_stream_type = {
