@@ -234,15 +234,15 @@ class EREvent(CDIPBaseModel):
     owner: str = "na"
     location: Optional[ERLocation]
     time: datetime
-    created_at: Optional[datetime]
-    updated_at: Optional[datetime]
-    serial_number: Optional[int]
+    created_at: datetime
+    updated_at: datetime
+    serial_number: int
     event_type: str
-    priority: Optional[int]
-    priority_label: Optional[str]
+    priority: int
+    priority_label: str
     title: Optional[str]
-    state: EREventState = Field(EREventState.new.value)
-    url: Optional[str]
+    state: EREventState
+    url: str
     event_details: Dict[str, Any]
     patrols: Optional[List[str]]
     files: Optional[List[dict]]
@@ -263,9 +263,6 @@ class EREvent(CDIPBaseModel):
         description="The unique ID for the " "Smart Integrate Inbound Integration.",
     )
     observation_type: str = Field(StreamPrefixEnum.earthranger_event.value, const=True)
-
-    class Config:
-        extra = "allow"  # To allow adding extra fields with field mappings
 
     @validator("state")
     def clean_sender(cls, val):
@@ -298,15 +295,12 @@ class ERPatrolEvent(BaseModel):
 
 
 class ERObservation(BaseModel):
-    id: Optional[str]
+    id: str
     location: ERLocation
-    created_at: Optional[datetime]
+    created_at: datetime
     recorded_at: datetime
-    source: Optional[str]
+    source: str
     observation_details: Optional[dict]
-
-    class Config:
-        extra = "allow"  # To allow adding extra fields with field mappings
 
 
 class ERPatrolSegment(BaseModel):
