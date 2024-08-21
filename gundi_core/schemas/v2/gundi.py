@@ -716,7 +716,7 @@ class SMARTPushEventActionConfig(BaseModel):
     timezone: Optional[str]
 
 
-# SMART Supported Actions & Configuration Schemas
+# WPS Supported Actions & Configuration Schemas
 class WPSWatchActions(str, Enum):
     AUTHENTICATE = "auth"
     PUSH_EVENTS = "push_events"
@@ -727,6 +727,14 @@ class WPSWatchAuthActionConfig(BaseModel):
     api_key: str = Field(
         example="someapikey",
         description="API Key to authenticate requests to WPS Watch API",
+    )
+
+
+class WPSWatchPushEventsActionConfig(BaseModel):
+    upload_domain: str = Field(
+        "upload.wpswatch.org",
+        example="upload-qa.wpswatch.org",
+        description="Domain used when uploading images in WPS Watch API",
     )
 
 
