@@ -1,6 +1,7 @@
 from gundi_core.schemas.v2 import (
     EREvent, ERObservation, EREventUpdate, ERAttachment,
-    SMARTCompositeRequest, SMARTUpdateRequest
+    SMARTCompositeRequest, SMARTUpdateRequest,
+    WPSWatchImage, WPSWatchImageMetadata
 )
 from .core import SystemEventBaseModel
 
@@ -32,3 +33,13 @@ class EventTransformedSMART(SystemEventBaseModel):
 
 class EventUpdateTransformedSMART(SystemEventBaseModel):
     payload: SMARTUpdateRequest
+
+
+# WPS Watch
+class EventTransformedWPSWatch(SystemEventBaseModel):
+    payload: WPSWatchImageMetadata
+
+
+class AttachmentTransformedWPSWatch(SystemEventBaseModel):
+    payload: WPSWatchImage
+

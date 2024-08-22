@@ -1,18 +1,9 @@
 from typing import List, Optional, Dict, Any
 from typing import Union
 from uuid import UUID
-from datetime import datetime, timezone
 from pydantic import BaseModel, Field, validator
-from enum import IntEnum
+from gundi_core.schemas.v2.gundi import LogLevel
 from .core import SystemEventBaseModel
-
-
-
-class LogLevel(IntEnum):
-    DEBUG = 10
-    INFO = 20
-    WARNING = 30
-    ERROR = 40
 
 
 class IntegrationActionEvent(BaseModel):
