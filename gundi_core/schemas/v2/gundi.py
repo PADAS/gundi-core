@@ -157,6 +157,12 @@ class Event(GundiBaseModel):
     )
     observation_type: str = Field(StreamPrefixEnum.event.value, const=True)
 
+    status: Optional[str] = Field(
+        None,
+        title="Event status",
+        description="Events status, for example: 'new', 'resolved', etc...",
+    )
+
     @validator("recorded_at", allow_reuse=True)
     def clean_recorded_at(cls, val):
 
