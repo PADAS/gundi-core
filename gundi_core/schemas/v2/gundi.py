@@ -385,6 +385,11 @@ class IntegrationAction(BaseModel):
         example="{}",
         description="Schema definition of any configuration required for this action, in jsonschema format.",
     )
+    ui_schema: Optional[Dict[str, Any]] = Field(
+        {},
+        example='{"ui:order": ["username", "password"]}',
+        description="UI Schema definition for the configuration form",
+    )
 
 
 class IntegrationActionSummary(BaseModel):
@@ -471,6 +476,12 @@ class IntegrationWebhook(BaseModel):
         """,
         description="Schema definition of any configuration required for this webhook, in jsonschema format.",
     )
+    ui_schema: Optional[Dict[str, Any]] = Field(
+        {},
+        example='{"ui:order": ["username", "password"]}',
+        description="UI Schema definition for the configuration form",
+    )
+
 
 class IntegrationWebhookSummary(BaseModel):
     id: Union[UUID, str] = Field(
