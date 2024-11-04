@@ -285,6 +285,11 @@ class ConnectionIntegration(BaseModel):
         example="healthy",
         description="Computed status representing if the integration is working properly or not",
     )
+    status_details: Optional[str] = Field(
+        "",
+        example="healthy",
+        description="A human-readable string explaining the status of the integration",
+    )
 
 
 class ConnectionRoute(BaseModel):
@@ -588,10 +593,15 @@ class Integration(BaseModel):
     webhook_configuration: Optional[WebhookConfiguration]
     default_route: Optional[ConnectionRoute]
     additional: Optional[Dict[str, Any]] = {}
-    status: Optional[Dict[str, Any]] = Field(  # ToDo: Review once Activity/Monitoring is implemented
-        {},
-        example="{}",
-        description="A json object with detailed information about the integration health status",
+    status: Optional[str] = Field(
+        "unknown",
+        example="healthy",
+        description="Health status representing if the integration is working properly or not",
+    )
+    status_details: Optional[str] = Field(
+        "",
+        example="healthy",
+        description="A human-readable string explaining the status of the integration",
     )
 
 
