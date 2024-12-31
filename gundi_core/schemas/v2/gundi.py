@@ -551,6 +551,39 @@ class IntegrationActionConfiguration(BaseModel):
     data: Optional[Dict[str, Any]] = {}
 
 
+# ToDo. delete if not needed
+# class ActionConfigInfo(BaseModel):
+#     id: Union[UUID, str] = Field(
+#         ...,
+#         title="Configuration ID",
+#         description="Id of the configuration",
+#     )
+#     action_id: Union[UUID, str] = Field(
+#         ...,
+#         title="Slug ID",
+#         description="Slug ID of an action in Gundi",
+#     )
+#     integration_id: Union[UUID, str] = Field(
+#         ...,
+#         title="Integration ID",
+#         description="Id of the integration that this configuration is for",
+#     )
+#     data: dict = Field(
+#         title="Configuration Values",
+#         description="A dictionary containing the configuration values",
+#         default_factory=dict
+#     )
+#
+#     @classmethod
+#     def from_integration_action_configuration(cls, action_config: IntegrationActionConfiguration):
+#         return cls(
+#             id=action_config.id,
+#             action_id=action_config.action.id,
+#             integration_id=action_config.integration,
+#             data=action_config.data
+#         )
+
+
 class WebhookConfiguration(BaseModel):
     id: Union[UUID, str] = Field(
         None,
@@ -564,6 +597,59 @@ class WebhookConfiguration(BaseModel):
     )
     webhook: IntegrationWebhookSummary
     data: Optional[Dict[str, Any]] = {}
+
+
+class IntegrationSummary(BaseModel):
+    id: Union[UUID, str] = Field(
+        ...,
+        title="Integration ID",
+        description="Id of an integration in Gundi",
+    )
+    name: Optional[str] = Field(
+        "",
+        example="X Data Provider for Y Reserve",
+        description="Route name",
+    )
+    type: IntegrationType
+    base_url: Optional[str] = Field(
+        "",
+        example="https://easterisland.pamdas.org/",
+        description="Base URL of the third party system associated with this integration.",
+    )
+    enabled: Optional[bool] = Field(
+        True,
+        example="true",
+        description="Enable/Disable this integration",
+    )
+    owner: Organization
+    default_route: Optional[ConnectionRoute]
+    additional: Optional[Dict[str, Any]] = {}
+
+    @classmethod
+    def from_integration(cls, integration: Integration):
+        return cls(
+            id=integration.id,
+            name=integration.name,
+            type=integration.type,
+            base_url=integration.base_url,
+            enabled=integration.enabled,
+            owner=integration.owner,
+            default_route=integration.default_route,
+            additional=integration.additional,
+        )
+
+
+class ConfigChanges(pydantic.BaseModel):
+    id: Union[UUID, str] = Field(
+        ...,
+        title="ID",
+        description="Id of the record that changed in Gundi",
+    )
+    changes: dict = Field(
+        title="Data Changes",
+        description="A dictionary containing the changes made in the form 'field': 'value'.",
+        default_factory=dict
+    )
 
 
 class Integration(BaseModel):
@@ -603,6 +689,26 @@ class Integration(BaseModel):
         example="healthy",
         description="A human-readable string explaining the status of the integration",
     )
+
+    @classmethod
+    def from_integration_summary(
+            cls, integration_info: IntegrationSummary,
+            configurations: List[IntegrationActionConfiguration]=None,
+            webhook_configuration: WebhookConfiguration=None,
+    ):
+        return cls(
+            id=integration_info.id,
+            name=integration_info.name,
+            type=integration_info.type,
+            base_url=integration_info.base_url,
+            enabled=integration_info.enabled,
+            owner=integration_info.owner,
+            default_route=integration_info.default_route,
+            additional=integration_info.additional,
+            configurations=configurations,
+            webhook_configuration=webhook_configuration,
+        )
+
 
 
 # Earth Ranger Supported Actions & Configuration Schemas

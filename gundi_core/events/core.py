@@ -24,10 +24,15 @@ class SystemEventBaseModel(BaseModel):
         description="Event payload. This can be overwritten in more specific events",
     )
 
+    @property
+    def event_type(self) -> str:
+        # Read-only property that returns the class name as the event type
+        return self.__class__.__name__
+
     def dict(self, *args, **kwargs):
         # Add the event_type field with the class name
         json_dict = super().dict(*args, **kwargs)
-        json_dict["event_type"] = self.__class__.__name__
+        json_dict["event_type"] = self.event_type
         return json_dict
 
     def json(self, *args, **kwargs):
