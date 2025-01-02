@@ -572,10 +572,28 @@ class ConfigChanges(BaseModel):
         title="ID",
         description="Id of the record that changed in Gundi",
     )
+    alt_id: Union[UUID, str] = Field(
+        None,
+        title="Alternative ID",
+        description="An alternative ID e.g. Slug ID or Custom ID",
+    )
     changes: dict = Field(
         title="Data Changes",
         description="A dictionary containing the changes made in the form 'field': 'value'.",
         default_factory=dict
+    )
+
+
+class DeletionDetails(BaseModel):
+    id: Union[UUID, str] = Field(
+        ...,
+        title="ID",
+        description="Id of the object that was deleted in Gundi",
+    )
+    alt_id: Union[UUID, str]  = Field(
+        None,
+        title="Alternative ID",
+        description="An alternative ID. e.g. Slug ID or Custom ID",
     )
 
 

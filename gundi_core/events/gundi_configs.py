@@ -1,5 +1,5 @@
 import pydantic
-from gundi_core.schemas.v2 import IntegrationSummary, IntegrationActionConfiguration, ConfigChanges
+from gundi_core.schemas.v2 import IntegrationSummary, IntegrationActionConfiguration, ConfigChanges, DeletionDetails
 from .core import SystemEventBaseModel
 
 # Events published by the portal on config changes
@@ -14,7 +14,7 @@ class IntegrationUpdated(SystemEventBaseModel):
 
 
 class IntegrationDeleted(SystemEventBaseModel):
-    payload: IntegrationSummary
+    payload: DeletionDetails
 
 
 class ActionConfigCreated(SystemEventBaseModel):
@@ -24,4 +24,4 @@ class ActionConfigUpdated(SystemEventBaseModel):
     payload: ConfigChanges
 
 class ActionConfigDeleted(SystemEventBaseModel):
-    payload: IntegrationActionConfiguration
+    payload: DeletionDetails
