@@ -566,7 +566,7 @@ class WebhookConfiguration(BaseModel):
     data: Optional[Dict[str, Any]] = {}
 
 
-class ConfigChanges(pydantic.BaseModel):
+class ConfigChanges(BaseModel):
     id: Union[UUID, str] = Field(
         ...,
         title="ID",
@@ -616,6 +616,19 @@ class Integration(BaseModel):
         example="healthy",
         description="A human-readable string explaining the status of the integration",
     )
+
+    def get_action_config(self, action: str) -> IntegrationActionConfiguration:
+        """
+        Get the configuration for a specific action
+        :param action: The action value to get the configuration for. e.g. "auth", "pull_events", ...
+        """
+        return next(
+            (
+                config for config in self.configurations
+                if config.action.value == action
+            ),
+            None
+        )
 
 
 class IntegrationSummary(BaseModel):
