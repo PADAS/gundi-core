@@ -4,7 +4,8 @@ from gundi_core.schemas.v2 import (
     IntegrationActionConfiguration,
     IntegrationConfigChanges,
     ActionConfigChanges,
-    DeletionDetails
+    IntegrationDeletionDetails,
+    ActionConfigDeletionDetails,
 )
 from .core import SystemEventBaseModel
 
@@ -18,7 +19,7 @@ class IntegrationUpdated(SystemEventBaseModel):
     payload: IntegrationConfigChanges
 
 class IntegrationDeleted(SystemEventBaseModel):
-    payload: DeletionDetails
+    payload: IntegrationDeletionDetails
 
 
 class ActionConfigCreated(SystemEventBaseModel):
@@ -28,4 +29,4 @@ class ActionConfigUpdated(SystemEventBaseModel):
     payload: ActionConfigChanges
 
 class ActionConfigDeleted(SystemEventBaseModel):
-    payload: DeletionDetails
+    payload: ActionConfigDeletionDetails

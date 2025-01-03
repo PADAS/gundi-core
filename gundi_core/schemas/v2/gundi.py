@@ -609,6 +609,18 @@ class DeletionDetails(BaseModel):
     )
 
 
+class IntegrationDeletionDetails(DeletionDetails):
+    pass
+
+
+class ActionConfigDeletionDetails(DeletionDetails):
+    integration_id: Union[UUID, str] = Field(
+        ...,
+        title="Integration ID",
+        description="Id of the integration that this configuration was for",
+    )
+
+
 class Integration(BaseModel):
     id: Union[UUID, str] = Field(
         None,
