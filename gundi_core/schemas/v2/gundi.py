@@ -566,6 +566,61 @@ class WebhookConfiguration(BaseModel):
     data: Optional[Dict[str, Any]] = {}
 
 
+class ConfigChanges(BaseModel):
+    id: Union[UUID, str] = Field(
+        ...,
+        title="ID",
+        description="Id of the record that changed in Gundi",
+    )
+    alt_id: Union[UUID, str] = Field(
+        None,
+        title="Alternative ID",
+        description="An alternative ID e.g. Slug ID or Custom ID",
+    )
+    changes: dict = Field(
+        title="Data Changes",
+        description="A dictionary containing the changes made in the form 'field': 'value'.",
+        default_factory=dict
+    )
+
+
+class IntegrationConfigChanges(ConfigChanges):
+    pass
+
+
+class ActionConfigChanges(ConfigChanges):
+    integration_id: Union[UUID, str] = Field(
+        ...,
+        title="Integration ID",
+        description="Id of the integration that this configuration is for",
+    )
+
+
+class DeletionDetails(BaseModel):
+    id: Union[UUID, str] = Field(
+        ...,
+        title="ID",
+        description="Id of the object that was deleted in Gundi",
+    )
+    alt_id: Union[UUID, str]  = Field(
+        None,
+        title="Alternative ID",
+        description="An alternative ID. e.g. Slug ID or Custom ID",
+    )
+
+
+class IntegrationDeletionDetails(DeletionDetails):
+    pass
+
+
+class ActionConfigDeletionDetails(DeletionDetails):
+    integration_id: Union[UUID, str] = Field(
+        ...,
+        title="Integration ID",
+        description="Id of the integration that this configuration was for",
+    )
+
+
 class Integration(BaseModel):
     id: Union[UUID, str] = Field(
         None,
@@ -604,6 +659,58 @@ class Integration(BaseModel):
         description="A human-readable string explaining the status of the integration",
     )
 
+    def get_action_config(self, action: str) -> IntegrationActionConfiguration:
+        """
+        Get the configuration for a specific action
+        :param action: The action value to get the configuration for. e.g. "auth", "pull_events", ...
+        """
+        return next(
+            (
+                config for config in self.configurations
+                if config.action.value == action
+            ),
+            None
+        )
+
+
+class IntegrationSummary(BaseModel):
+    id: Union[UUID, str] = Field(
+        ...,
+        title="Integration ID",
+        description="Id of an integration in Gundi",
+    )
+    name: Optional[str] = Field(
+        "",
+        example="X Data Provider for Y Reserve",
+        description="Route name",
+    )
+    type: IntegrationType
+    base_url: Optional[str] = Field(
+        "",
+        example="https://easterisland.pamdas.org/",
+        description="Base URL of the third party system associated with this integration.",
+    )
+    enabled: Optional[bool] = Field(
+        True,
+        example="true",
+        description="Enable/Disable this integration",
+    )
+    owner: Organization
+    default_route: Optional[ConnectionRoute]
+    additional: Optional[Dict[str, Any]] = {}
+
+    @classmethod
+    def from_integration(cls, integration: Integration):
+        return cls(
+            id=integration.id,
+            name=integration.name,
+            type=integration.type,
+            base_url=integration.base_url,
+            enabled=integration.enabled,
+            owner=integration.owner,
+            default_route=integration.default_route,
+            additional=integration.additional,
+        )
 
 # Earth Ranger Supported Actions & Configuration Schemas
 class EarthRangerActions(str, Enum):
