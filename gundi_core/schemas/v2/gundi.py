@@ -584,6 +584,18 @@ class ConfigChanges(BaseModel):
     )
 
 
+class IntegrationConfigChanges(ConfigChanges):
+    pass
+
+
+class ActionConfigChanges(ConfigChanges):
+    integration_id: Union[UUID, str] = Field(
+        ...,
+        title="Integration ID",
+        description="Id of the integration that this configuration is for",
+    )
+
+
 class DeletionDetails(BaseModel):
     id: Union[UUID, str] = Field(
         ...,
