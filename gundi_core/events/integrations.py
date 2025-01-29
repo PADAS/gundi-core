@@ -6,7 +6,6 @@ from gundi_core.schemas.v2.gundi import LogLevel
 from .core import SystemEventBaseModel
 
 
-# ToDo: Inherit from SystemEventBaseModel to be consistent with other events
 class IntegrationActionEvent(BaseModel):
     integration_id: Union[UUID, str] = Field(
         None,
