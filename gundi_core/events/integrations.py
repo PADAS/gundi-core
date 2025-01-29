@@ -47,6 +47,11 @@ class ActionExecutionFailed(IntegrationActionEvent):
         title="Error Traceback",
         description="A string with the traceback of the error.",
     )
+    request_verb: Optional[str] = Field(
+        "",
+        title="Request Verb",
+        description="The HTTP verb of the request that caused the error.",
+    )
     request_url: Optional[str] = Field(
         "",
         title="Request URL",
