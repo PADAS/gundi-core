@@ -42,6 +42,36 @@ class ActionExecutionFailed(IntegrationActionEvent):
         title="Error",
         description="A string with the error message of the action execution.",
     )
+    error_traceback: Optional[str] = Field(
+        "",
+        title="Error Traceback",
+        description="A string with the traceback of the error.",
+    )
+    request_verb: Optional[str] = Field(
+        "",
+        title="Request Verb",
+        description="The HTTP verb of the request that caused the error.",
+    )
+    request_url: Optional[str] = Field(
+        "",
+        title="Request URL",
+        description="The URL of the request that caused the error.",
+    )
+    request_data: Optional[str] = Field(
+        "",
+        title="Request Data",
+        description="The data of the request that caused the error.",
+    )
+    server_response_status: Optional[int] = Field(
+        None,
+        title="Server Response Status",
+        description="The status code of the server response.",
+    )
+    server_response_body: Optional[str] = Field(
+        "",
+        title="Server Response",
+        description="The response from the server as text.",
+    )
 
 
 class IntegrationWebhookEvent(BaseModel):
