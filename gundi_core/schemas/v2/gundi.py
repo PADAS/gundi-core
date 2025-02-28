@@ -872,6 +872,22 @@ class WPSWatchPushEventsActionConfig(BaseModel):
     )
 
 
+class TrapTaggerActions(str, Enum):
+    AUTHENTICATE = "auth"
+    PUSH_EVENTS = "push_events"
+
+
+class TrapTaggerAuthActionConfig(BaseModel):
+    api_key: str = Field(
+        example="someapikey",
+        description="API Key to authenticate requests to TrapTagger API",
+    )
+
+
+class TrapTaggerPushEventsActionConfig(BaseModel):
+    pass
+
+
 class GundiTrace(BaseModel):
     object_id: Union[UUID, str] = Field(
         None,

@@ -1,7 +1,8 @@
 from gundi_core.schemas.v2 import (
     EREvent, ERObservation, EREventUpdate, ERAttachment,
     SMARTCompositeRequest, SMARTUpdateRequest,
-    WPSWatchImage, WPSWatchImageMetadata
+    WPSWatchImage, WPSWatchImageMetadata,
+    TrapTaggerImage, TrapTaggerImageMetadata
 )
 from .core import SystemEventBaseModel
 
@@ -43,3 +44,11 @@ class EventTransformedWPSWatch(SystemEventBaseModel):
 class AttachmentTransformedWPSWatch(SystemEventBaseModel):
     payload: WPSWatchImage
 
+
+# TrapTagger
+class EventTransformedTrapTagger(SystemEventBaseModel):
+    payload: TrapTaggerImageMetadata
+
+
+class AttachmentTransformedTrapTagger(SystemEventBaseModel):
+    payload: TrapTaggerImage
