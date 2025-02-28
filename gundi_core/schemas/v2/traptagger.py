@@ -6,7 +6,7 @@ class TrapTaggerImage(BaseModel):
 
 
 class TrapTaggerImageMetadata(BaseModel):
-    camera_id: str = Field(..., title="Camera name")
+    camera: str = Field(..., title="Camera name")
     latitude: str = Field(..., title="Latitude")
     longitude: str = Field(..., title="Longitude")
     timestamp: str = Field(..., title="Timestamp", description="YYYY-MM-DD HH:MM:SS")
