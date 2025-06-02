@@ -227,7 +227,7 @@ class TextMessage(GundiBaseModel):
         title="Sender",
         description="The sender of the text message, typically an imei or phone number, an email, or other identifier.",
     )
-    recepients: List[str] = Field(
+    recipients: List[str] = Field(
         default_factory=list,
         title="Recepients",
         description="A list of recipients for the text message. This can include imeis, phone numbers, emails, or other identifiers.",
