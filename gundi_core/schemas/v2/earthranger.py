@@ -103,3 +103,32 @@ class EREventUpdate(BaseModel):
 
     class Config:
         extra = "allow"  # To allow adding extra fields with field mappings
+
+
+class ERMessage(BaseModel):
+    # Text messages sent to Earthranger
+    message_type: str = Field(
+        "inbox",
+        title="Message Type",
+        description="Type of the message, e.g., 'inbox'.",
+    )
+    text: Optional[str] = Field(
+        "",
+        title="Message Text",
+        description="The content of the message.",
+    )
+    message_time: datetime = Field(
+        ...,
+        title="Message Timestamp",
+        description="Timestamp when the message was sent or received.",
+    )
+    device_location: Optional[ERObservationLocation] = Field(
+        None,
+        title="Device Location",
+        description="Location of the device when the message was sent or received.",
+    )
+    additional: Optional[Dict[str, Any]] = Field(
+        default_factory=dict,
+        title="Additional Data",
+        description="A dictionary of extra data that will be passed to ER.",
+    )
