@@ -249,7 +249,7 @@ class TextMessage(GundiBaseModel):
         title="Additional Data",
         description="A dictionary of extra data that will be passed to the receivers.",
     )
-    observation_type: str = Field(StreamPrefixEnum.attachment.value, const=True)
+    observation_type: str = Field(StreamPrefixEnum.text_message.value, const=True)
 
 
 class Organization(BaseModel):
