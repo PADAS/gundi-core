@@ -12,6 +12,7 @@ class StreamPrefixEnum(str, Enum):
     event = "ev"
     event_update = "evu"
     attachment = "att"
+    text_message = "txt"
 
 
 class LogLevel(IntEnum):
