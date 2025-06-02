@@ -2,7 +2,8 @@ from gundi_core.schemas.v2 import (
     EREvent, ERObservation, EREventUpdate, ERAttachment,
     SMARTCompositeRequest, SMARTUpdateRequest,
     WPSWatchImage, WPSWatchImageMetadata,
-    TrapTaggerImage, TrapTaggerImageMetadata
+    TrapTaggerImage, TrapTaggerImageMetadata,
+    ERMessage, InReachIPCMessage
 )
 from .core import SystemEventBaseModel
 
@@ -26,6 +27,8 @@ class AttachmentTransformedER(SystemEventBaseModel):
 class ObservationTransformedER(SystemEventBaseModel):
     payload: ERObservation
 
+class MessageTransformedER(SystemEventBaseModel):
+    payload: ERMessage
 
 # SMART
 class EventTransformedSMART(SystemEventBaseModel):
@@ -52,3 +55,8 @@ class EventTransformedTrapTagger(SystemEventBaseModel):
 
 class AttachmentTransformedTrapTagger(SystemEventBaseModel):
     payload: TrapTaggerImage
+
+
+# InReach
+class MessageTransformedInReach(SystemEventBaseModel):
+    payload: InReachIPCMessage
