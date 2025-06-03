@@ -1,5 +1,10 @@
-from gundi_core.schemas.v2 import Observation, Event, Attachment, EventUpdate
-from gundi_core.schemas.v1 import EREvent
+from gundi_core.schemas.v2 import (
+    Observation,
+    Event,
+    Attachment,
+    EventUpdate,
+    TextMessage
+)
 from .core import SystemEventBaseModel
 
 # Events published by the portal
@@ -20,3 +25,6 @@ class AttachmentReceived(SystemEventBaseModel):
 class ObservationReceived(SystemEventBaseModel):
     payload: Observation
 
+
+class TextMessageReceived(SystemEventBaseModel):
+    payload: TextMessage
