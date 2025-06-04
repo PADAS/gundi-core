@@ -112,6 +112,11 @@ class ERMessage(BaseModel):
         title="Message Type",
         description="Type of the message, e.g., 'inbox'.",
     )
+    manufacturer_id: str = Field(
+        ...,
+        title="Device Manufacturer ID",
+        description="A unique identifier of the device that sent this message.",
+    )
     text: Optional[str] = Field(
         "",
         title="Message Text",
