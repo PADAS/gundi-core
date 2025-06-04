@@ -34,6 +34,7 @@ class DestinationTypes(Enum):
     WPSWatch = "wps_watch"
     Movebank = "movebank"
     TrapTagger = "trap_tagger"
+    InReach = "inreach"
 
 
 class TokenData(BaseModel):
