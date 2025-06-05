@@ -105,6 +105,11 @@ class EREventUpdate(BaseModel):
         extra = "allow"  # To allow adding extra fields with field mappings
 
 
+class ERMessageLocation(BaseModel):
+    longitude: float = Field(..., title="Longitude in decimal degrees")
+    latitude: float = Field(..., title="Latitude in decimal degrees")
+
+
 class ERMessage(BaseModel):
     # Text messages sent to Earthranger
     message_type: str = Field(
@@ -127,7 +132,7 @@ class ERMessage(BaseModel):
         title="Message Timestamp",
         description="Timestamp when the message was sent or received.",
     )
-    device_location: Optional[ERObservationLocation] = Field(
+    device_location: Optional[ERMessageLocation] = Field(
         None,
         title="Device Location",
         description="Location of the device when the message was sent or received.",
