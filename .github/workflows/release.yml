@@ -27,57 +27,53 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Set up uv (with a pinned Python)
+        # `python-version` on setup-uv installs the requested CPython AND makes
+        # it the interpreter every subsequent `uv sync` / `uv run` resolves to,
+        # so the release build/tests are reproducible regardless of what
+        # interpreter happens to be first on the runner's PATH.
+        uses: astral-sh/setup-uv@v3
         with:
+          enable-cache: true
           python-version: "3.11"
 
-      - name: Install Poetry
-        # Pinned so a future Poetry release can't silently change the
-        # build/publish behavior under a release pipeline.
-        uses: snok/install-poetry@v1
-        with:
-          version: "1.8.3"
-          virtualenvs-create: true
-          virtualenvs-in-project: true
-
       - name: Install dependencies
-        # `poetry install` installs the project + dev group (which carries
-        # pytest + pytest-asyncio for the release-gate test run).
-        run: poetry install --no-interaction
+        # uv sync installs the project plus the `dev` dependency group by default.
+        run: uv sync
 
       - name: Run tests
         # Gate the release on the test suite passing against the tagged
         # commit. Without this, a broken tag would still ship to PyPI.
-        run: poetry run pytest -q
+        run: uv run pytest -q
 
-      - name: Verify tag is a strict release and matches pyproject version
+      - name: Verify tag is a strict release and matches __version__
         # 1. The trigger glob `v*.*.*` would happily match pre-release tags
         #    like `v1.2.3-rc1` — the last `*` is greedy. Reject anything
         #    that isn't strictly vX.Y.Z so a stray pre-release tag can't
         #    accidentally publish to production PyPI.
-        # 2. `poetry version --short` reads the version directly from
-        #    pyproject.toml; cheaper than importing the package and works
-        #    regardless of which modules the package imports at import time.
+        # 2. Parse __version__ directly from the source file (matching how
+        #    hatchling reads it) instead of importing the package — that
+        #    avoids pulling pydantic and every other module-level import
+        #    just to read a string.
         run: |
           tag_version="${GITHUB_REF_NAME#v}"
           if [[ ! "$tag_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "::error::Tag '$GITHUB_REF_NAME' is not a strict vX.Y.Z release tag; pre-release/build tags are not allowed by this workflow."
             exit 1
           fi
-          pkg_version=$(poetry version --short)
+          pkg_version=$(awk -F'["'"'"']' '/^__version__[[:space:]]*=/ {print $2; exit}' gundi_core/__init__.py)
           if [ -z "$pkg_version" ]; then
-            echo "::error::Could not read project version via poetry"
+            echo "::error::Could not parse __version__ from gundi_core/__init__.py"
             exit 1
           fi
           if [ "$tag_version" != "$pkg_version" ]; then
-            echo "::error::Tag ($tag_version) and pyproject version ($pkg_version) differ"
+            echo "::error::Tag ($tag_version) and __version__ ($pkg_version) differ"
             exit 1
           fi
           echo "Tag and package both at $pkg_version"
 
       - name: Build wheel and sdist
-        run: poetry build
+        run: uv build
 
       - name: Show built artifacts
         run: ls -la dist/

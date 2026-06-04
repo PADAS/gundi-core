@@ -1,25 +1,28 @@
-[tool.poetry]
+[project]
 name = "gundi-core"
-version = "1.11.3"
-
-description = ""
-authors = [
-    "Mariano M <marianom@earthranger.com>",
-    "Victor Garcia <victorg@earthranger.com>"
-]
+dynamic = ["version"]
+description = "Shared schemas and system events for the Gundi platform."
 readme = "README.md"
-packages = [{include = "gundi_core"}]
+license = "Apache-2.0"
+requires-python = ">=3.7"
+authors = [
+    { name = "Mariano M", email = "marianom@earthranger.com" },
+    { name = "Victor Garcia", email = "victorg@earthranger.com" },
+]
 
-[tool.poetry.dependencies]
-python = "^3.7"
-pydantic = "^1.7.3"
+dependencies = [
+    "pydantic>=1.7.3,<2",
+]
 
+[dependency-groups]
+dev = [
+    "pytest>=7",
+    "pytest-asyncio>=0.21",
+]
 
-[tool.poetry.group.dev.dependencies]
-pytest = "^7"
-pytest-asyncio = "^0.21"
-
+[tool.hatch.version]
+path = "gundi_core/__init__.py"
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
