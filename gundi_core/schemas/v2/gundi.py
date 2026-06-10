@@ -163,6 +163,17 @@ class Event(GundiBaseModel):
         title="Event status",
         description="Events status, for example: 'new', 'resolved', etc...",
     )
+    provider_metadata: Optional[Dict[str, Any]] = Field(
+        None,
+        title="Provider Metadata",
+        description=(
+            "Structured metadata about this event's origin or production, injected "
+            "by the source provider's action runner. Distinct from event_details "
+            "(which holds the event's domain data). Typical contents: deep-link "
+            "URL back to the source system's UI for cross-referencing. Destinations "
+            "may surface select keys to operators."
+        ),
+    )
 
     @validator("recorded_at", allow_reuse=True)
     def clean_recorded_at(cls, val):
