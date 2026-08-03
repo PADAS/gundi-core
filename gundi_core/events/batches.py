@@ -9,12 +9,15 @@ from gundi_core.schemas.v2 import ERObservation, Observation, StreamPrefixEnum
 from .core import SystemEventBaseModel
 
 
-# Batch envelopes: a message carrying 1..N items that share a data provider
-# and stream type. Pipeline stages may SPLIT or SHRINK a batch (drop items,
-# regroup per destination) but must never MERGE batches — that invariant is
-# what keeps the pipeline free of buffers and flush timers.
+# Batch envelopes: a message carrying observations that share a data provider
+# and stream type. Publishers only emit non-empty batches; an empty batch is
+# still valid to PARSE (consumers treat it as a no-op) so a shrunk-to-zero
+# envelope never turns into a hard failure. Pipeline stages may SPLIT or
+# SHRINK a batch (drop items, regroup per destination) but must never MERGE
+# batches — that invariant is what keeps the pipeline free of buffers and
+# flush timers.
 #
-# IMPORTANT: these events must keep the inherited schema_version="v1".
+# IMPORTANT: these events are pinned to schema_version="v1" (const).
 # cdip-routing and the ER dispatcher discard transformer events with any
 # other schema_version.
 
@@ -25,11 +28,15 @@ class ObservationsBatch(BaseModel):
         ...,
         description="The provider Integration shared by every observation in the batch.",
     )
-    stream_type: str = Field(StreamPrefixEnum.observation.value, const=True)
+    # Named observation_type for consistency with the per-item payload
+    # schemas (e.g. Observation.observation_type); the PubSub message
+    # attribute carrying the same value is still named stream_type.
+    observation_type: str = Field(StreamPrefixEnum.observation.value, const=True)
     observations: List[Observation] = Field(default_factory=list)
 
 
 class ObservationsBatchReceived(SystemEventBaseModel):
+    schema_version: str = Field("v1", const=True)
     payload: ObservationsBatch
 
 
@@ -55,6 +62,7 @@ class ERObservationsBatch(BaseModel):
 
 
 class ObservationsBatchTransformedER(SystemEventBaseModel):
+    schema_version: str = Field("v1", const=True)
     payload: ERObservationsBatch
 
 
@@ -69,4 +77,5 @@ class ObservationsBatchDeliveryDetails(BaseModel):
 
 
 class ObservationsBatchDelivered(SystemEventBaseModel):
+    schema_version: str = Field("v1", const=True)
     payload: ObservationsBatchDeliveryDetails

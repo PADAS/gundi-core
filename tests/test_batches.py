@@ -96,6 +96,7 @@ def test_batch_delivered_round_trip():
     )
     raw = json.loads(event.json())
     assert raw["event_type"] == "ObservationsBatchDelivered"
+    assert raw["schema_version"] == "v1"  # MUST stay v1: routing/dispatcher gates discard anything else
     rebuilt = ObservationsBatchDelivered.parse_obj(raw)
     assert [str(g) for g in rebuilt.payload.gundi_ids] == gundi_ids
 
@@ -103,3 +104,28 @@ def test_batch_delivered_round_trip():
 def test_empty_observations_default_is_a_list():
     batch = ObservationsBatch(data_provider_id="ddd0946d-15b0-4308-b93d-e0470b6d33b6")
     assert batch.observations == []
+    assert batch.observation_type == "obv"
+
+
+def test_schema_version_is_pinned_to_v1():
+    import pydantic
+
+    for event_cls, payload in (
+        (ObservationsBatchReceived, ObservationsBatch(data_provider_id="p1")),
+        (
+            ObservationsBatchTransformedER,
+            ERObservationsBatch(data_provider_id="p1", destination_id="d1", provider_key="k"),
+        ),
+        (
+            ObservationsBatchDelivered,
+            ObservationsBatchDeliveryDetails(
+                batch_id=str(uuid.uuid4()),
+                data_provider_id="p1",
+                destination_id="d1",
+                delivered_at=datetime(2026, 7, 29, 12, 0, 0, tzinfo=timezone.utc),
+            ),
+        ),
+    ):
+        assert event_cls(payload=payload).schema_version == "v1"
+        with pytest.raises(pydantic.ValidationError):
+            event_cls(schema_version="v2", payload=payload)
