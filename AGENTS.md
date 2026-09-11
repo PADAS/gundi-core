@@ -58,12 +58,16 @@ Trusted Publishing/OIDC — no token — under the `pypi` GitHub environment.
   i.e. what the transformer produces and each dispatcher POSTs to that third-party API.
 
 Both generations define `StreamPrefixEnum` and `models_by_stream_type` with **different members**
-(v1: `ps`/`ge`/`ct`/`er_event`…; v2: `obv`/`ev`/`evu`/`att`/`txt`). Always be explicit about which
+(v1: `ps`/`ge`/`ct`/`er_event`…; v2: `obv`/`obvu`/`ev`/`evu`/`att`/`txt`). Always be explicit about which
 module you are importing from.
 
-Every v2 payload type carries `observation_type: str = Field(<prefix>, const=True)`. That const field
-is the discriminator consumers rely on to identify a payload, and it is what makes `smart_union`
-unions (e.g. `GundiDelivery.payload`) resolve to the right concrete class instead of first-match.
+Every v2 payload type carries `observation_type: str = Field(<prefix>, const=True)`. That const field is
+the discriminator. When a payload arrives as a dict, pydantic validates it against each union member in
+declaration order and the const rejects the mismatches, so the correct concrete class wins — but only while
+the key is actually present. A payload dict with `observation_type` omitted falls back to first-match and
+resolves silently to the wrong class (an `Attachment` dict lands on `EventUpdate`). `smart_union` on
+`GundiDelivery.payload` guards the already-constructed-instance case; it does not inspect
+`observation_type`, so never rely on it to tell dicts apart.
 
 ### `events/` — the EDA envelopes
 
@@ -158,13 +162,18 @@ validation and serialization. What they defend is the wire format that deployed 
   `json.loads(event.json())` → `parse_obj(...)`, asserting on `event_type` and `schema_version`.
   `event_type` is derived from the class name, so this is the only thing standing between a rename and a
   silent break in production.
-- **Assert IDs and timestamps through `str()` on both sides.** `json()` is
-  `json.dumps(self.dict(), default=str)` — *not* pydantic's encoders. UUIDs and datetimes are stringified by
-  `str()`, so a datetime serializes as `"2026-07-01 12:00:00+00:00"` (space, not `T`), and because every ID
-  field is `Union[UUID, str]`, a round-tripped model comes back holding a `str`. `rebuilt.gundi_id == original_uuid`
-  fails; `str(rebuilt.gundi_id) == str(original_uuid)` is the assertion that works.
-- **`event_type` is injected at the top level only.** Nested payloads do not carry it — assert on the
-  payload's `observation_type` const instead.
+- **Know what `json()` changes and what it does not.** `json()` is `json.dumps(self.dict(), default=str)` —
+  *not* pydantic's encoders — so a datetime is stringified by `str()` and serializes as
+  `"2026-07-01 12:00:00+00:00"` (space, not the `T` pydantic's own encoder emits). Assert that spelling when
+  the test is about the wire format. Parsing is unaffected: pydantic coerces those strings back, so
+  `rebuilt.event_id == original_uuid` and `rebuilt.timestamp == original_datetime` both hold. IDs declared
+  `Union[UUID, str]` also come back as `UUID` whenever the value is a valid UUID — they stay `str` only for
+  non-UUID identifiers, which is the reason the union exists. Reach for `str()` on both sides only for those
+  genuinely dual-typed fields, not as a blanket habit.
+- **Do not confuse the envelope's `event_type` with a payload's.** The envelope injects its `event_type`
+  (the class name) at the top level only. The v2 `Event` payload has its own unrelated domain `event_type`
+  field, so `payload["event_type"]` can legitimately be present holding something like `"fire_alert"`. To
+  identify what kind of payload a nested object is, assert on its `observation_type` const.
 - **Edge cases, three families minimum:**
   1. *happy path* — full payload, intact round-trip.
   2. *invalid input* — `pytest.raises(pydantic.ValidationError)` (the specific class, not bare `Exception`),
@@ -174,7 +183,7 @@ validation and serialization. What they defend is the wire format that deployed 
 - **Backward compatibility:** when adding a field, include a test that parses a dict *without* it — that is
   an old producer talking to a new consumer mid-rollout, which is the normal state during a deploy.
 - **`smart_union` payload unions:** if you touch one (e.g. `GundiDelivery.payload`), test each member and
-  assert `isinstance` against the resolved class, including parsing a raw dict keyed only by
+  assert `isinstance` against the resolved class, including parsing a raw dict that carries
   `observation_type`. A broken discriminator looks healthy until it resolves to the wrong type.
 
 ### 🚫 WHAT NOT TO DO
