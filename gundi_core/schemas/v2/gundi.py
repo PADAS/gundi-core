@@ -390,6 +390,32 @@ class RouteConfiguration(BaseModel):
     data: Optional[Dict[str, Any]] = {}
 
 
+class RouteFilter(BaseModel):
+    """A filter applied to one route↔destination pair.
+
+    `by_provider` is both a disambiguation and the rule's scope. `external_id` is unique
+    only within a provider, so a flat list would let a second provider's identically-named
+    device satisfy a rule written for the first; and a provider absent from the map is
+    untouched by the rule.
+    """
+
+    type: Optional[str] = Field(
+        "list",
+        example="list",
+        description="Which kind of filter this is. Only 'list' is implemented.",
+    )
+    mode: Optional[str] = Field(
+        None,
+        example="whitelist",
+        description="'whitelist' to allow only the listed devices, 'blacklist' to drop them.",
+    )
+    enabled: Optional[bool] = True
+    by_provider: Optional[Dict[str, List[str]]] = Field(
+        {},
+        description="External source IDs the rule covers, keyed by data provider ID.",
+    )
+
+
 class Route(BaseModel):
     id: Union[UUID, str] = Field(
         None,
@@ -406,6 +432,10 @@ class Route(BaseModel):
     destinations: Optional[List[ConnectionIntegration]]
     configuration: Optional[RouteConfiguration]
     additional: Optional[Dict[str, Any]] = {}
+    filters: Optional[Dict[str, RouteFilter]] = Field(
+        {},
+        description="Filters on this route, keyed by destination ID.",
+    )
 
 
 class IntegrationAction(BaseModel):

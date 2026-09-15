@@ -178,3 +178,45 @@ class IntegrationWebhookComplete(SystemEventBaseModel):
 
 class IntegrationWebhookFailed(SystemEventBaseModel):
     payload: WebhookExecutionFailed
+
+
+class FilteredObservation(BaseModel):
+    gundi_id: Union[UUID, str] = Field(
+        None,
+        title="Gundi ID",
+        description="The unique ID of the observation that was dropped.",
+    )
+    related_to: Optional[Union[UUID, str]] = Field(
+        None,
+        title="Related To",
+        description="The Gundi ID of the parent object, for updates and attachments.",
+    )
+    data_provider_id: Union[UUID, str] = Field(
+        None,
+        title="Data Provider ID",
+        description="The provider the observation came from.",
+    )
+    destination_id: Union[UUID, str] = Field(
+        None,
+        title="Destination ID",
+        description=(
+            "The destination the observation was dropped for. A rule covers one "
+            "destination, so the same observation may still be delivered elsewhere."
+        ),
+    )
+    external_source_id: Optional[str] = Field(
+        None,
+        title="External Source ID",
+        description="The device ID the rule matched on.",
+    )
+    filtered_by: Optional[str] = Field(
+        None,
+        title="Filtered By",
+        description="Which kind of rule dropped it: 'device_whitelist' or 'device_blacklist'.",
+    )
+
+
+class ObservationFiltered(SystemEventBaseModel):
+    # The trace's `filtered_at` comes from the envelope's `timestamp`; the payload does not
+    # repeat it.
+    payload: FilteredObservation
