@@ -248,3 +248,58 @@ def test_a_disabled_rule_is_left_falsy_when_null(destination_id):
     )
 
     assert not route.filters[destination_id].enabled
+
+
+def test_a_list_rule_is_recognised_as_one(route_payload, destination_id):
+    assert Route.parse_obj(route_payload).filter_for(destination_id).is_device_list()
+
+
+def test_a_rule_of_another_type_is_not_a_device_list(destination_id, provider_id):
+    # The gap this closes: every rule type carries a `mode`, so a geographic rule
+    # occupying the destination's slot is not self-evidently inert. Without the type
+    # check a consumer would read its `by_provider` as a device list and drop whatever
+    # that happened to contain — fail-open covers an unrecognised value, not one type's
+    # semantics applied to another.
+    route = Route.parse_obj(
+        {
+            "filters": {
+                destination_id: {
+                    "type": "geoboundary",
+                    "mode": "whitelist",
+                    "by_provider": {provider_id: ["collar-001"]},
+                }
+            }
+        }
+    )
+
+    rule = route.filter_for(destination_id)
+    assert rule.mode == RouteFilterMode.WHITELIST.value
+    assert not rule.is_device_list()
+
+
+def test_a_rule_with_no_type_at_all_is_not_a_device_list(destination_id):
+    # An explicit null is not the default. Nothing should read list semantics out of a
+    # rule that never claimed to be one.
+    route = Route.parse_obj(
+        {"filters": {destination_id: {"type": None, "mode": "whitelist"}}}
+    )
+
+    assert not route.filter_for(destination_id).is_device_list()
+
+
+def test_one_rule_per_destination(destination_id, provider_id):
+    # The shape's known limitation, pinned so a future change to it is deliberate: the
+    # block holds a single rule per arrow, while the portal's model permits one per type.
+    route = Route.parse_obj(
+        {
+            "filters": {
+                destination_id: {
+                    "type": "list",
+                    "mode": "whitelist",
+                    "by_provider": {provider_id: ["collar-001"]},
+                }
+            }
+        }
+    )
+
+    assert isinstance(route.filters[destination_id], RouteFilter)

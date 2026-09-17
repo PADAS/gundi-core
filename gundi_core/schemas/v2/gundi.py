@@ -416,6 +416,11 @@ class RouteFilter(BaseModel):
     and an enum-typed field would instead raise at parse time, costing the consumer the
     whole route payload (and with it every other destination's rules) over one bad value.
     Compare against `RouteFilterType` / `RouteFilterMode` rather than bare literals.
+
+    `mode` and `by_provider` are the semantics of a `list` rule specifically. Check
+    `is_device_list()` before reading them: a rule of some other type carries a valid
+    `mode` too, so applying list semantics to it would drop the wrong devices rather
+    than fail open.
     """
 
     type: Optional[str] = Field(
@@ -460,6 +465,18 @@ class RouteFilter(BaseModel):
             return {str(key): ids for key, ids in value.items()}
         return value
 
+    def is_device_list(self) -> bool:
+        """Whether this rule is the device-list kind, the only one implemented.
+
+        The consumer must gate on this before applying `mode` / `by_provider`. Every
+        rule type carries a `mode`, so an unrecognised type is not self-evidently inert:
+        without this check a future `geoboundary` rule occupying the destination's slot
+        would be evaluated as a device list, dropping whatever its `by_provider` happened
+        to contain. Fail-open covers an unrecognised *value*; it does not cover applying
+        one type's semantics to another.
+        """
+        return self.type == RouteFilterType.LIST.value
+
     def ids_for(self, provider_id) -> Optional[List[str]]:
         """External source IDs this rule covers for `provider_id`.
 
@@ -494,7 +511,8 @@ class Route(BaseModel):
         {},
         description=(
             "Filters on this route, keyed by destination ID. Served on route retrieve "
-            "only; a route read from a list endpoint carries no filters."
+            "only; a route read from a list endpoint carries no filters. At most one "
+            "rule per destination — see `filter_for`."
         ),
     )
 
@@ -514,6 +532,14 @@ class Route(BaseModel):
 
         Absence means allow — a rule on one destination does not restrict any other.
         Accepts a `UUID` or a `str`; see `RouteFilter.ids_for` for why that matters.
+
+        At most one rule per destination. The portal's model is looser — its uniqueness
+        constraint is per (route, destination, type), leaving room for a geographic or
+        time rule to share the arrow with a device list — so the serializer is
+        responsible for emitting only the `list` rule into this block. Combining types is
+        out of scope and their combined semantics are undefined; should that change, this
+        block gains a level and consumers change with it. Until then, check
+        `is_device_list()` on whatever comes back.
         """
         if destination_id is None:
             return None
