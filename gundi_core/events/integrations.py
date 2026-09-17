@@ -1,6 +1,7 @@
 from typing import List, Optional, Dict, Any
 from typing import Union
 from uuid import UUID
+from enum import Enum
 from pydantic import BaseModel, Field, validator
 from gundi_core.schemas.v2.gundi import LogLevel
 from .core import SystemEventBaseModel
@@ -178,3 +179,72 @@ class IntegrationWebhookComplete(SystemEventBaseModel):
 
 class IntegrationWebhookFailed(SystemEventBaseModel):
     payload: WebhookExecutionFailed
+
+
+class ObservationFilterReason(str, Enum):
+    DEVICE_WHITELIST = "device_whitelist"
+    DEVICE_BLACKLIST = "device_blacklist"
+
+
+class FilteredObservation(BaseModel):
+    # The three identity fields are required. The consumer stamps the drop onto an
+    # existing trace row found by these values, and an event it cannot match is
+    # acknowledged and discarded; the pipeline is forward-only, so that trace record is
+    # not recoverable. Better for the publisher to fail loudly at construction than to
+    # emit an event that silently identifies nothing.
+    gundi_id: Union[UUID, str] = Field(
+        ...,
+        title="Gundi ID",
+        description="The unique ID of the observation that was dropped.",
+    )
+    related_to: Optional[Union[UUID, str]] = Field(
+        None,
+        title="Related To",
+        description="The Gundi ID of the parent object, for updates and attachments.",
+    )
+    data_provider_id: Union[UUID, str] = Field(
+        ...,
+        title="Data Provider ID",
+        description="The provider the observation came from.",
+    )
+    destination_id: Union[UUID, str] = Field(
+        ...,
+        title="Destination ID",
+        description=(
+            "The destination the observation was dropped for. A rule covers one "
+            "destination, so the same observation may still be delivered elsewhere."
+        ),
+    )
+    external_source_id: Optional[str] = Field(
+        None,
+        title="External Source ID",
+        description="The device ID the rule matched on.",
+    )
+    # Left as a plain string rather than enum-typed: the consumer's column has room for
+    # filter kinds beyond the two below, and rejecting an unknown *value* at parse time
+    # would discard the event rather than record the drop. Publishers should use
+    # ObservationFilterReason.
+    #
+    # Bounded at the consumer's column width even so. Leniency is only worth having where
+    # the value could still be stored, and a longer one could not be under any
+    # circumstance — so accepting it here buys nothing and merely moves the failure from
+    # a ValidationError in the publisher to a database error in the consumer, by which
+    # point the drop has already happened and the trace record is gone either way.
+    filtered_by: Optional[str] = Field(
+        None,
+        title="Filtered By",
+        max_length=32,
+        description=(
+            "Which kind of rule dropped it; see ObservationFilterReason. Bounded by the "
+            "32-character column the consumer stores it in."
+        ),
+    )
+
+
+class ObservationFiltered(SystemEventBaseModel):
+    # Pinned to v1: the consumer discards events whose schema_version it does not
+    # recognise, and the pipeline is forward-only, so the trace record would be lost.
+    # The trace's `filtered_at` comes from the envelope's `timestamp`; the payload does not
+    # repeat it.
+    schema_version: str = Field("v1", const=True)
+    payload: FilteredObservation
