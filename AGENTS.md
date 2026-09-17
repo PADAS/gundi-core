@@ -43,7 +43,7 @@ Trusted Publishing/OIDC — no token — under the `pypi` GitHub environment.
 ### pydantic 1.x only
 
 `pydantic>=1.7.3,<2` is a hard constraint: consumers run pydantic 1. Use v1 idioms — `@validator`,
-`class Config`, `.dict()`/`.json()`/`.parse_obj()`, `Field(..., const=True)`. Do not introduce
+`class Config`, `.dict()`/`.json()`/`.parse_obj()`, `Field(<default>, const=True)`. Do not introduce
 `model_config`, `@field_validator`, or other v2 API.
 
 ### `schemas/` — two coexisting generations
