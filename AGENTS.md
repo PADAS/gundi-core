@@ -57,9 +57,15 @@ Trusted Publishing/OIDC — no token — under the `pypi` GitHub environment.
 - `schemas/v2/{earthranger,smart,wpswatch,traptagger,inreach}.py` — per-destination payload shapes,
   i.e. what the transformer produces and each dispatcher POSTs to that third-party API.
 
-Both generations define `StreamPrefixEnum` and `models_by_stream_type` with **different members**
-(v1: `ps`/`ge`/`ct`/`er_event`…; v2: `obv`/`obvu`/`ev`/`evu`/`att`/`txt`). Always be explicit about which
-module you are importing from.
+Both generations define `StreamPrefixEnum` and `models_by_stream_type`, and the overlap is the trap:
+each declares `observation = "obv"`, so `models_by_stream_type[StreamPrefixEnum.observation]` resolves to
+`v1.Observation` in one module and `v2.Observation` in the other — same key, different class, no error.
+Past that shared member the enums diverge (v1: `ps`/`ge`/`ct`/`er_event`…; v2: `obvu`/`ev`/`evu`/`att`/`txt`).
+Always be explicit about which module you are importing from.
+
+v2's `models_by_stream_type` is also not a complete mapping of its own enum — it covers only `obv`, `ev`
+and `att`, so `models_by_stream_type[StreamPrefixEnum.text_message]` raises `KeyError`, as does
+`observation_update` and `event_update`. Check the key before indexing.
 
 Every v2 payload type carries `observation_type: str = Field(<prefix>, const=True)`. That const field is
 the discriminator. When a payload arrives as a dict, pydantic validates it against each union member in
@@ -195,8 +201,9 @@ validation and serialization. What they defend is the wire format that deployed 
   patch is a sign the design drifted.
 - **Do not assert on `repr` or on serialized key order.** The contract is field names and values.
 - **Do not write async tests casually.** There is no async code in the package and no `asyncio_mode` config
-  in `pyproject.toml`, so `pytest-asyncio` runs in strict mode — an unmarked coroutine test is skipped with a
-  warning rather than failing. Mark it `@pytest.mark.asyncio` if one ever becomes necessary.
+  in `pyproject.toml`, so `pytest-asyncio` runs in strict mode — an unmarked coroutine test fails outright
+  (`async def functions are not natively supported`) rather than being skipped. Mark it
+  `@pytest.mark.asyncio` if one ever becomes necessary.
 
 > Coverage today is limited to `events/batches.py` and `events/delivery.py`. The rule above applies to every
 > module you touch — it is not a mandate to backfill the rest.
