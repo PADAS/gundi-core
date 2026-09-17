@@ -162,3 +162,34 @@ def test_filtered_by_accepts_a_reason_the_package_does_not_know(
     )
 
     assert payload.filtered_by == "geoboundary"
+
+
+def test_filtered_by_is_bounded_by_the_consumers_column(
+    gundi_id, provider_id, destination_id
+):
+    # A reason too long to store is not a leniency case: the consumer could not persist
+    # it under any circumstance, so it fails here, in the publisher, rather than as a
+    # database error after the drop has already happened.
+    with pytest.raises(pydantic.ValidationError):
+        FilteredObservation(
+            gundi_id=gundi_id,
+            data_provider_id=provider_id,
+            destination_id=destination_id,
+            filtered_by="d" * 33,
+        )
+
+
+@pytest.mark.parametrize("reason", list(ObservationFilterReason))
+def test_every_known_reason_fits_that_column(
+    reason, gundi_id, provider_id, destination_id
+):
+    # Guards the other direction: adding a reason whose name overflows the column is
+    # caught here rather than the first time it is published.
+    payload = FilteredObservation(
+        gundi_id=gundi_id,
+        data_provider_id=provider_id,
+        destination_id=destination_id,
+        filtered_by=reason.value,
+    )
+
+    assert payload.filtered_by == reason.value

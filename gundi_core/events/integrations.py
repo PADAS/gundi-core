@@ -221,15 +221,22 @@ class FilteredObservation(BaseModel):
         description="The device ID the rule matched on.",
     )
     # Left as a plain string rather than enum-typed: the consumer's column has room for
-    # filter kinds beyond the two below, and rejecting an unknown value at parse time
+    # filter kinds beyond the two below, and rejecting an unknown *value* at parse time
     # would discard the event rather than record the drop. Publishers should use
     # ObservationFilterReason.
+    #
+    # Bounded at the consumer's column width even so. Leniency is only worth having where
+    # the value could still be stored, and a longer one could not be under any
+    # circumstance — so accepting it here buys nothing and merely moves the failure from
+    # a ValidationError in the publisher to a database error in the consumer, by which
+    # point the drop has already happened and the trace record is gone either way.
     filtered_by: Optional[str] = Field(
         None,
         title="Filtered By",
+        max_length=32,
         description=(
-            "Which kind of rule dropped it; see ObservationFilterReason. The consumer "
-            "stores this in a 32-character column."
+            "Which kind of rule dropped it; see ObservationFilterReason. Bounded by the "
+            "32-character column the consumer stores it in."
         ),
     )
 
