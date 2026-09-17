@@ -6,7 +6,11 @@ import uuid
 import pydantic
 import pytest
 
-from gundi_core.events import FilteredObservation, ObservationFiltered
+from gundi_core.events import (
+    FilteredObservation,
+    ObservationFiltered,
+    ObservationFilterReason,
+)
 
 
 @pytest.fixture
@@ -73,6 +77,13 @@ def test_observation_filtered_autogenerates_its_envelope(filtered_observation):
     assert event.timestamp is not None
 
 
+def test_observation_filtered_pins_its_schema_version(filtered_observation):
+    # Not merely defaulted: the consumer discards an event whose schema_version it does
+    # not recognise, and the pipeline is forward-only, so the trace record is lost.
+    with pytest.raises(pydantic.ValidationError):
+        ObservationFiltered(payload=filtered_observation, schema_version="v2")
+
+
 def test_observation_filtered_requires_a_payload():
     with pytest.raises(pydantic.ValidationError):
         ObservationFiltered()
@@ -83,21 +94,71 @@ def test_filtered_observation_rejects_an_unusable_id():
         FilteredObservation(gundi_id=["not", "an", "id"])
 
 
-def test_filtered_observation_tolerates_absent_optionals(gundi_id, destination_id):
+@pytest.mark.parametrize(
+    "missing", ["gundi_id", "data_provider_id", "destination_id"]
+)
+def test_filtered_observation_requires_every_identity_field(
+    missing, gundi_id, provider_id, destination_id
+):
+    # An event the consumer cannot match to a trace row is acknowledged and discarded,
+    # and nothing replays it — so an absent id must fail at construction, in the
+    # publisher, rather than travel as a well-formed event that identifies nothing.
+    fields = {
+        "gundi_id": gundi_id,
+        "data_provider_id": provider_id,
+        "destination_id": destination_id,
+    }
+    del fields[missing]
+
+    with pytest.raises(pydantic.ValidationError):
+        FilteredObservation(**fields)
+
+
+def test_filtered_observation_tolerates_absent_optionals(
+    gundi_id, provider_id, destination_id
+):
     # An attachment or an update has a parent; a plain observation does not.
-    payload = FilteredObservation(gundi_id=gundi_id, destination_id=destination_id)
+    payload = FilteredObservation(
+        gundi_id=gundi_id, data_provider_id=provider_id, destination_id=destination_id
+    )
 
     assert payload.related_to is None
     assert payload.external_source_id is None
     assert payload.filtered_by is None
 
 
-def test_filtered_observation_keeps_the_parent_reference(gundi_id, destination_id):
+def test_filtered_observation_keeps_the_parent_reference(
+    gundi_id, provider_id, destination_id
+):
     parent = uuid.UUID("7c9e6679-7425-40de-944b-e07fc1f90ae7")
     payload = FilteredObservation(
-        gundi_id=gundi_id, destination_id=destination_id, related_to=parent
+        gundi_id=gundi_id,
+        data_provider_id=provider_id,
+        destination_id=destination_id,
+        related_to=parent,
     )
 
     rebuilt = FilteredObservation.parse_obj(json.loads(payload.json()))
 
     assert str(rebuilt.related_to) == str(parent)
+
+
+def test_filter_reason_constants_match_the_wire_values():
+    # The consumer stores these verbatim; renaming one silently stops matching.
+    assert ObservationFilterReason.DEVICE_WHITELIST.value == "device_whitelist"
+    assert ObservationFilterReason.DEVICE_BLACKLIST.value == "device_blacklist"
+
+
+def test_filtered_by_accepts_a_reason_the_package_does_not_know(
+    gundi_id, provider_id, destination_id
+):
+    # Room for filter kinds beyond the device lists. Rejecting an unknown value here
+    # would discard the event rather than record the drop.
+    payload = FilteredObservation(
+        gundi_id=gundi_id,
+        data_provider_id=provider_id,
+        destination_id=destination_id,
+        filtered_by="geoboundary",
+    )
+
+    assert payload.filtered_by == "geoboundary"

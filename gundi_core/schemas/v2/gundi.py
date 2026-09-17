@@ -390,6 +390,19 @@ class RouteConfiguration(BaseModel):
     data: Optional[Dict[str, Any]] = {}
 
 
+class RouteFilterType(str, Enum):
+    LIST = "list"
+    # Reserved by the portal's model; nothing evaluates them yet. They are named here so
+    # a consumer can recognise a rule it does not know how to apply and let the data pass.
+    GEOBOUNDARY = "geoboundary"
+    TIME = "time"
+
+
+class RouteFilterMode(str, Enum):
+    WHITELIST = "whitelist"
+    BLACKLIST = "blacklist"
+
+
 class RouteFilter(BaseModel):
     """A filter applied to one route↔destination pair.
 
@@ -397,23 +410,68 @@ class RouteFilter(BaseModel):
     only within a provider, so a flat list would let a second provider's identically-named
     device satisfy a rule written for the first; and a provider absent from the map is
     untouched by the rule.
+
+    Deliberately lenient: `type` and `mode` are plain strings rather than enum-typed
+    fields. Enforcement is fail-open — an unrecognised value must let the data through —
+    and an enum-typed field would instead raise at parse time, costing the consumer the
+    whole route payload (and with it every other destination's rules) over one bad value.
+    Compare against `RouteFilterType` / `RouteFilterMode` rather than bare literals.
     """
 
     type: Optional[str] = Field(
-        "list",
+        RouteFilterType.LIST.value,
         example="list",
-        description="Which kind of filter this is. Only 'list' is implemented.",
+        description=(
+            "Which kind of filter this is; see RouteFilterType. Only 'list' is "
+            "implemented — any other value is unrecognised and lets the data through."
+        ),
     )
     mode: Optional[str] = Field(
         None,
         example="whitelist",
-        description="'whitelist' to allow only the listed devices, 'blacklist' to drop them.",
+        description=(
+            "'whitelist' to allow only the listed devices, 'blacklist' to drop them; "
+            "see RouteFilterMode. Any other value, including null, is unrecognised and "
+            "lets the data through."
+        ),
     )
+    # Left nullable on purpose: a null reads as falsy, which disables the rule and lets
+    # the data through. Defaulting a null to True would be fail-closed and could drop
+    # data on a malformed payload.
     enabled: Optional[bool] = True
     by_provider: Optional[Dict[str, List[str]]] = Field(
         {},
-        description="External source IDs the rule covers, keyed by data provider ID.",
+        description=(
+            "External source IDs the rule covers, keyed by data provider ID. A provider "
+            "absent from this map is untouched by the rule."
+        ),
     )
+
+    @validator("by_provider", pre=True, always=True)
+    def _normalize_by_provider(cls, value):
+        # Two hazards this closes. A null on the wire would otherwise survive as None and
+        # turn the consumer's `by_provider.get(...)` into an AttributeError — an exception
+        # in the dispatch loop, not the fail-open path. And keys arrive as strings, so a
+        # consumer holding a UUID provider id would miss every lookup; normalizing here
+        # lets `ids_for()` coerce the other side of the comparison.
+        if value is None:
+            return {}
+        if isinstance(value, dict):
+            return {str(key): ids for key, ids in value.items()}
+        return value
+
+    def ids_for(self, provider_id) -> Optional[List[str]]:
+        """External source IDs this rule covers for `provider_id`.
+
+        None means the rule does not name this provider, and so does not apply to it —
+        which is not the same as an empty list. Accepts a `UUID` or a `str`: the wire
+        keys are strings, while the provider id a consumer holds is typically a `UUID`
+        (`ConnectionIntegration.id` parses into one), and the mismatch would otherwise
+        silently miss.
+        """
+        if provider_id is None:
+            return None
+        return (self.by_provider or {}).get(str(provider_id))
 
 
 class Route(BaseModel):
@@ -434,8 +492,32 @@ class Route(BaseModel):
     additional: Optional[Dict[str, Any]] = {}
     filters: Optional[Dict[str, RouteFilter]] = Field(
         {},
-        description="Filters on this route, keyed by destination ID.",
+        description=(
+            "Filters on this route, keyed by destination ID. Served on route retrieve "
+            "only; a route read from a list endpoint carries no filters."
+        ),
     )
+
+    @validator("filters", pre=True, always=True)
+    def _normalize_filters(cls, value):
+        # Same two hazards as RouteFilter.by_provider: a null must not survive as None
+        # (the consumer's `filters.get(...)` would raise instead of failing open), and the
+        # keys are strings while a consumer's destination id is typically a UUID.
+        if value is None:
+            return {}
+        if isinstance(value, dict):
+            return {str(key): rule for key, rule in value.items()}
+        return value
+
+    def filter_for(self, destination_id) -> Optional[RouteFilter]:
+        """The filter covering `destination_id`, or None when that destination has none.
+
+        Absence means allow — a rule on one destination does not restrict any other.
+        Accepts a `UUID` or a `str`; see `RouteFilter.ids_for` for why that matters.
+        """
+        if destination_id is None:
+            return None
+        return (self.filters or {}).get(str(destination_id))
 
 
 class IntegrationAction(BaseModel):
