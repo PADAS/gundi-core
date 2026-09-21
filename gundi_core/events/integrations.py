@@ -181,15 +181,10 @@ class IntegrationWebhookFailed(SystemEventBaseModel):
     payload: WebhookExecutionFailed
 
 
-# Reports that an observation was dropped for one destination, so the portal can mark
-# the trace (GUNDI-5178). Two facts about the channel shape this payload: an event the
-# consumer cannot match to a trace row is acknowledged and DISCARDED, and the pipeline
-# is forward-only — so a record lost here is lost for good. Hence the three identity
-# fields are required rather than optional: better the publisher fails at construction
-# than emits an event identifying nothing.
-#
-# IMPORTANT: pinned to schema_version="v1" (const), for the same reason as the batch
-# envelopes — consumers drop what they do not recognise.
+# Observation dropped for one destination, so the portal can mark the trace
+# (GUNDI-5178). An event the consumer cannot match to a trace row is acked and
+# DISCARDED against a forward-only pipeline, so the record is then lost for good —
+# hence the required identity fields, and schema_version pinned like the batch envelopes.
 
 
 class ObservationFilterReason(str, Enum):
@@ -223,11 +218,8 @@ class FilteredObservation(BaseModel):
         title="External Source ID",
         description="The device ID the rule matched on.",
     )
-    # Plain string, not enum-typed: the consumer's column has room for filter kinds
-    # beyond the two above, and rejecting an unknown *value* would discard the event
-    # rather than record the drop. Bounded at that column's width even so — a longer
-    # value could not be stored under any circumstance, so accepting it would only move
-    # the failure downstream, by which point the trace record is gone either way.
+    # Plain string so an unrecognised kind still records the drop, but bounded at the
+    # consumer's column width, which a longer value could not fit under any circumstance.
     filtered_by: Optional[str] = Field(
         None,
         title="Filtered By",
@@ -237,7 +229,6 @@ class FilteredObservation(BaseModel):
 
 
 class ObservationFiltered(SystemEventBaseModel):
-    # The trace's `filtered_at` comes from the envelope's `timestamp`; the payload does
-    # not repeat it.
+    # The trace's `filtered_at` is the envelope's `timestamp`; the payload does not repeat it.
     schema_version: str = Field("v1", const=True)
     payload: FilteredObservation

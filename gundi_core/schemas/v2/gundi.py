@@ -390,29 +390,22 @@ class RouteConfiguration(BaseModel):
     data: Optional[Dict[str, Any]] = {}
 
 
-# Device routing rules: per-destination whitelists and blacklists the portal serves on
-# a route (GUNDI-5178). Two invariants drive every decision below.
+# Device routing rules the portal serves per destination (GUNDI-5178).
 #
-# FAIL-OPEN. A malformed rule must let data through, never drop it silently. That is why
-# `type` and `mode` stay plain strings rather than enum-typed fields: an enum raises at
-# parse time and costs the consumer the whole route payload, every other destination's
-# rules included. It is also why a null `enabled` is left falsy — defaulting it to True
-# would be fail-closed. `RouteFilterType`/`RouteFilterMode` carry the constants so
-# neither side compares against bare literals.
+# Keys are JSON strings, while the ids a consumer holds are UUIDs
+# (`ConnectionIntegration.id` parses into one). Use `filter_for()`/`ids_for()`, which
+# take either — a raw `.get()` misses every time, and since no rule means allow, a
+# whitelist would then apply to nothing at all.
 #
-# STRING KEYS. Both maps are keyed by JSON strings, while the ids a consumer reads off
-# the same payload are not: `ConnectionIntegration.id` is `Union[UUID, str]` and parses
-# into a UUID. A raw `.get()` therefore misses every time, and since absence of a rule
-# means allow, a whitelist would apply to nothing at all. Use `filter_for()`/`ids_for()`,
-# which take either kind, and gate on `is_device_list()` before reading `mode` or
-# `by_provider` — every rule type carries a valid `mode`, so a future geoboundary rule in
-# a destination's slot would otherwise be evaluated as a device list.
+# Enforcement is fail-open: `type` and `mode` stay plain strings because an enum would
+# reject the whole route payload over one bad value, and a null `enabled` is left falsy.
+# Gate on `is_device_list()` before reading `mode`/`by_provider` — every rule type
+# carries a valid `mode`.
 
 
 class RouteFilterType(str, Enum):
     LIST = "list"
-    # Reserved by the portal's model; nothing evaluates them yet. Named so a consumer can
-    # recognise a rule it cannot apply and let the data pass.
+    # Reserved by the portal's model; nothing evaluates them yet.
     GEOBOUNDARY = "geoboundary"
     TIME = "time"
 
@@ -434,9 +427,8 @@ class RouteFilter(BaseModel):
         description="'whitelist' to allow only the listed devices, 'blacklist' to drop them.",
     )
     enabled: Optional[bool] = True
-    # Grouped by provider because `external_id` is unique only within one: a flat list
-    # would let a second provider's identically-named device satisfy the rule. The keys
-    # are also the rule's scope — a provider absent from the map is untouched by it.
+    # Grouped by provider: `external_id` is unique only within one, and a provider absent
+    # from the map is untouched by the rule.
     by_provider: Optional[Dict[str, List[str]]] = Field(
         {},
         description="External source IDs the rule covers, keyed by data provider ID.",
@@ -451,11 +443,10 @@ class RouteFilter(BaseModel):
         return value
 
     def is_device_list(self) -> bool:
-        """Whether this rule is the device-list kind, the only one implemented."""
         return self.type == RouteFilterType.LIST.value
 
     def ids_for(self, provider_id) -> Optional[List[str]]:
-        """IDs this rule covers for `provider_id`; None when it does not name that provider."""
+        """None when the rule does not name this provider, which is not an empty list."""
         if provider_id is None:
             return None
         return (self.by_provider or {}).get(str(provider_id))
@@ -477,10 +468,8 @@ class Route(BaseModel):
     destinations: Optional[List[ConnectionIntegration]]
     configuration: Optional[RouteConfiguration]
     additional: Optional[Dict[str, Any]] = {}
-    # Served on route retrieve only; a list endpoint carries no filters. At most one rule
-    # per destination, while the portal's uniqueness constraint is per (route,
-    # destination, type) — so its serializer must emit only the `list` rule here. If
-    # combining types is ever built, this block gains a level and consumers change with it.
+    # Route retrieve only; a list endpoint carries none. One rule per destination, so the
+    # portal's serializer must emit only the `list` one.
     filters: Optional[Dict[str, RouteFilter]] = Field(
         {},
         description="Filters on this route, keyed by destination ID.",
@@ -495,7 +484,6 @@ class Route(BaseModel):
         return value
 
     def filter_for(self, destination_id) -> Optional[RouteFilter]:
-        """The filter covering `destination_id`, or None when that destination has none."""
         if destination_id is None:
             return None
         return (self.filters or {}).get(str(destination_id))
