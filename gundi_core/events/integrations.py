@@ -181,17 +181,23 @@ class IntegrationWebhookFailed(SystemEventBaseModel):
     payload: WebhookExecutionFailed
 
 
+# Reports that an observation was dropped for one destination, so the portal can mark
+# the trace (GUNDI-5178). Two facts about the channel shape this payload: an event the
+# consumer cannot match to a trace row is acknowledged and DISCARDED, and the pipeline
+# is forward-only — so a record lost here is lost for good. Hence the three identity
+# fields are required rather than optional: better the publisher fails at construction
+# than emits an event identifying nothing.
+#
+# IMPORTANT: pinned to schema_version="v1" (const), for the same reason as the batch
+# envelopes — consumers drop what they do not recognise.
+
+
 class ObservationFilterReason(str, Enum):
     DEVICE_WHITELIST = "device_whitelist"
     DEVICE_BLACKLIST = "device_blacklist"
 
 
 class FilteredObservation(BaseModel):
-    # The three identity fields are required. The consumer stamps the drop onto an
-    # existing trace row found by these values, and an event it cannot match is
-    # acknowledged and discarded; the pipeline is forward-only, so that trace record is
-    # not recoverable. Better for the publisher to fail loudly at construction than to
-    # emit an event that silently identifies nothing.
     gundi_id: Union[UUID, str] = Field(
         ...,
         title="Gundi ID",
@@ -210,41 +216,28 @@ class FilteredObservation(BaseModel):
     destination_id: Union[UUID, str] = Field(
         ...,
         title="Destination ID",
-        description=(
-            "The destination the observation was dropped for. A rule covers one "
-            "destination, so the same observation may still be delivered elsewhere."
-        ),
+        description="The destination the observation was dropped for.",
     )
     external_source_id: Optional[str] = Field(
         None,
         title="External Source ID",
         description="The device ID the rule matched on.",
     )
-    # Left as a plain string rather than enum-typed: the consumer's column has room for
-    # filter kinds beyond the two below, and rejecting an unknown *value* at parse time
-    # would discard the event rather than record the drop. Publishers should use
-    # ObservationFilterReason.
-    #
-    # Bounded at the consumer's column width even so. Leniency is only worth having where
-    # the value could still be stored, and a longer one could not be under any
-    # circumstance — so accepting it here buys nothing and merely moves the failure from
-    # a ValidationError in the publisher to a database error in the consumer, by which
-    # point the drop has already happened and the trace record is gone either way.
+    # Plain string, not enum-typed: the consumer's column has room for filter kinds
+    # beyond the two above, and rejecting an unknown *value* would discard the event
+    # rather than record the drop. Bounded at that column's width even so — a longer
+    # value could not be stored under any circumstance, so accepting it would only move
+    # the failure downstream, by which point the trace record is gone either way.
     filtered_by: Optional[str] = Field(
         None,
         title="Filtered By",
         max_length=32,
-        description=(
-            "Which kind of rule dropped it; see ObservationFilterReason. Bounded by the "
-            "32-character column the consumer stores it in."
-        ),
+        description="Which kind of rule dropped it; see ObservationFilterReason.",
     )
 
 
 class ObservationFiltered(SystemEventBaseModel):
-    # Pinned to v1: the consumer discards events whose schema_version it does not
-    # recognise, and the pipeline is forward-only, so the trace record would be lost.
-    # The trace's `filtered_at` comes from the envelope's `timestamp`; the payload does not
-    # repeat it.
+    # The trace's `filtered_at` comes from the envelope's `timestamp`; the payload does
+    # not repeat it.
     schema_version: str = Field("v1", const=True)
     payload: FilteredObservation

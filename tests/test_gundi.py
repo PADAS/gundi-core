@@ -25,6 +25,12 @@ def provider_id():
 
 
 @pytest.fixture
+def unrelated_id():
+    """An id no fixture payload mentions, for the lookup-misses cases."""
+    return uuid.UUID("11111111-2222-3333-4444-555555555555")
+
+
+@pytest.fixture
 def route_payload(destination_id, provider_id):
     return {
         "id": str(uuid.UUID("3f2504e0-4f89-41d3-9a0c-0305e82c3301")),
@@ -62,7 +68,7 @@ def test_route_filters_round_trip(route_payload, destination_id):
 
 def test_route_without_filters_still_parses():
     # An old portal talking to a new consumer mid-rollout.
-    route = Route.parse_obj({"id": str(uuid.uuid4()), "name": "No rules here"})
+    route = Route.parse_obj({"id": "7c9f4f2e-0000-4000-8000-000000000001", "name": "No rules here"})
 
     assert route.filters == {}
 
@@ -177,40 +183,40 @@ def test_filter_lookup_also_accepts_plain_strings(route_payload, destination_id,
     ]
 
 
-def test_lookup_of_an_unruled_destination_is_none(route_payload):
+def test_lookup_of_an_unruled_destination_is_none(route_payload, unrelated_id):
     # Absence means allow: a rule on one destination must not restrict any other.
     route = Route.parse_obj(route_payload)
 
-    assert route.filter_for(uuid.uuid4()) is None
+    assert route.filter_for(unrelated_id) is None
     assert route.filter_for(None) is None
 
 
-def test_lookup_of_an_unnamed_provider_is_none(route_payload, destination_id):
+def test_lookup_of_an_unnamed_provider_is_none(route_payload, destination_id, unrelated_id):
     # A rule only affects the providers it names. None is not the same as an empty list.
     rule = Route.parse_obj(route_payload).filter_for(destination_id)
 
-    assert rule.ids_for(uuid.uuid4()) is None
+    assert rule.ids_for(unrelated_id) is None
     assert rule.ids_for(None) is None
 
 
-def test_null_filters_block_reads_as_empty():
+def test_null_filters_block_reads_as_empty(unrelated_id):
     # Enforcement is fail-open, but a None surviving here would make the consumer's
     # `filters.get(...)` raise AttributeError inside the destination fan-out — an
     # exception, not the allow path.
     route = Route.parse_obj({"name": "Nulls from the portal", "filters": None})
 
     assert route.filters == {}
-    assert route.filter_for(uuid.uuid4()) is None
+    assert route.filter_for(unrelated_id) is None
 
 
-def test_null_by_provider_reads_as_empty(destination_id):
+def test_null_by_provider_reads_as_empty(destination_id, unrelated_id):
     route = Route.parse_obj(
         {"filters": {destination_id: {"mode": "whitelist", "by_provider": None}}}
     )
 
     rule = route.filters[destination_id]
     assert rule.by_provider == {}
-    assert rule.ids_for(uuid.uuid4()) is None
+    assert rule.ids_for(unrelated_id) is None
 
 
 def test_uuid_keys_survive_direct_construction(destination_id, provider_id):
