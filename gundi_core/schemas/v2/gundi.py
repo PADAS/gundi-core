@@ -390,6 +390,68 @@ class RouteConfiguration(BaseModel):
     data: Optional[Dict[str, Any]] = {}
 
 
+# Device routing rules the portal serves per destination (GUNDI-5178).
+#
+# Keys are JSON strings, while the ids a consumer holds are UUIDs
+# (`ConnectionIntegration.id` parses into one). Use `filter_for()`/`ids_for()`, which
+# take either — a raw `.get()` misses every time, and since no rule means allow, a
+# whitelist would then apply to nothing at all.
+#
+# Enforcement is fail-open: `type` and `mode` stay plain strings because an enum would
+# reject the whole route payload over one bad value, and a null `enabled` is left falsy.
+# Gate on `is_device_list()` before reading `mode`/`by_provider` — every rule type
+# carries a valid `mode`.
+
+
+class SourceFilterType(str, Enum):
+    LIST = "list"
+    # Reserved by the portal's model; nothing evaluates them yet.
+    GEOBOUNDARY = "geoboundary"
+    TIME = "time"
+
+
+class SourceListFilterMode(str, Enum):
+    WHITELIST = "whitelist"
+    BLACKLIST = "blacklist"
+
+
+class SourceListFilter(BaseModel):
+    type: Optional[str] = Field(
+        SourceFilterType.LIST.value,
+        example="list",
+        description="Which kind of filter this is; see SourceFilterType.",
+    )
+    mode: Optional[str] = Field(
+        None,
+        example="whitelist",
+        description="'whitelist' to allow only the listed devices, 'blacklist' to drop them.",
+    )
+    enabled: Optional[bool] = True
+    # Grouped by provider: `external_id` is unique only within one, and a provider absent
+    # from the map is untouched by the rule.
+    by_provider: Optional[Dict[str, List[str]]] = Field(
+        {},
+        description="External source IDs the rule covers, keyed by data provider ID.",
+    )
+
+    @validator("by_provider", pre=True, always=True)
+    def _normalize_by_provider(cls, value):
+        if value is None:
+            return {}
+        if isinstance(value, dict):
+            return {str(key): ids for key, ids in value.items()}
+        return value
+
+    def is_device_list(self) -> bool:
+        return self.type == SourceFilterType.LIST.value
+
+    def ids_for(self, provider_id) -> Optional[List[str]]:
+        """None when the rule does not name this provider, which is not an empty list."""
+        if provider_id is None:
+            return None
+        return (self.by_provider or {}).get(str(provider_id))
+
+
 class Route(BaseModel):
     id: Union[UUID, str] = Field(
         None,
@@ -406,6 +468,25 @@ class Route(BaseModel):
     destinations: Optional[List[ConnectionIntegration]]
     configuration: Optional[RouteConfiguration]
     additional: Optional[Dict[str, Any]] = {}
+    # Route retrieve only; a list endpoint carries none. One rule per destination, so the
+    # portal's serializer must emit only the `list` one.
+    filters: Optional[Dict[str, SourceListFilter]] = Field(
+        {},
+        description="Filters on this route, keyed by destination ID.",
+    )
+
+    @validator("filters", pre=True, always=True)
+    def _normalize_filters(cls, value):
+        if value is None:
+            return {}
+        if isinstance(value, dict):
+            return {str(key): rule for key, rule in value.items()}
+        return value
+
+    def filter_for(self, destination_id) -> Optional[SourceListFilter]:
+        if destination_id is None:
+            return None
+        return (self.filters or {}).get(str(destination_id))
 
 
 class IntegrationAction(BaseModel):

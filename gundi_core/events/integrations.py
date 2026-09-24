@@ -1,6 +1,7 @@
 from typing import List, Optional, Dict, Any
 from typing import Union
 from uuid import UUID
+from enum import Enum
 from pydantic import BaseModel, Field, validator
 from gundi_core.schemas.v2.gundi import LogLevel
 from .core import SystemEventBaseModel
@@ -178,3 +179,106 @@ class IntegrationWebhookComplete(SystemEventBaseModel):
 
 class IntegrationWebhookFailed(SystemEventBaseModel):
     payload: WebhookExecutionFailed
+
+
+# Observation dropped for one destination, so the portal can mark the trace
+# (GUNDI-5178). An event the consumer cannot match to a trace row is acked and
+# DISCARDED against a forward-only pipeline, so the record is then lost for good —
+# hence the required identity fields, and schema_version pinned like the batch envelopes.
+
+
+class ObservationFilterReason(str, Enum):
+    DEVICE_WHITELIST = "device_whitelist"
+    DEVICE_BLACKLIST = "device_blacklist"
+
+
+class FilteredObservation(BaseModel):
+    gundi_id: Union[UUID, str] = Field(
+        ...,
+        title="Gundi ID",
+        description="The unique ID of the observation that was dropped.",
+    )
+    related_to: Optional[Union[UUID, str]] = Field(
+        None,
+        title="Related To",
+        description="The Gundi ID of the parent object, for updates and attachments.",
+    )
+    data_provider_id: Union[UUID, str] = Field(
+        ...,
+        title="Data Provider ID",
+        description="The provider the observation came from.",
+    )
+    destination_id: Union[UUID, str] = Field(
+        ...,
+        title="Destination ID",
+        description="The destination the observation was dropped for.",
+    )
+    external_source_id: Optional[str] = Field(
+        None,
+        title="External Source ID",
+        description="The device ID the rule matched on.",
+    )
+    # Plain string so an unrecognised kind still records the drop, but bounded at the
+    # consumer's column width, which a longer value could not fit under any circumstance.
+    filtered_by: Optional[str] = Field(
+        None,
+        title="Filtered By",
+        max_length=32,
+        description="Which kind of rule dropped it; see ObservationFilterReason.",
+    )
+
+
+class ObservationFiltered(SystemEventBaseModel):
+    # The trace's `filtered_at` is the envelope's `timestamp`; the payload does not repeat it.
+    schema_version: str = Field("v1", const=True)
+    payload: FilteredObservation
+# Observation dropped because its transform raised or produced nothing, so the portal
+# can mark the trace with has_error (GUNDI-5178 phase 3). Unlike a filtered drop this
+# IS an error and belongs in connection health. Defined ahead of its publisher so it
+# rides the same release as ObservationFiltered — coordinating releases is the
+# expensive part, not the schema.
+
+
+class FailedTransformation(BaseModel):
+    gundi_id: Union[UUID, str] = Field(
+        ...,
+        title="Gundi ID",
+        description="The unique ID of the observation whose transform failed.",
+    )
+    related_to: Optional[Union[UUID, str]] = Field(
+        None,
+        title="Related To",
+        description="The Gundi ID of the parent object, for updates and attachments.",
+    )
+    data_provider_id: Union[UUID, str] = Field(
+        ...,
+        title="Data Provider ID",
+        description="The provider the observation came from.",
+    )
+    destination_id: Union[UUID, str] = Field(
+        ...,
+        title="Destination ID",
+        description="The destination whose transform failed.",
+    )
+    observation_type: Optional[str] = Field(
+        None,
+        title="Observation Type",
+        description="Stream type of the dropped observation (ev/obv/...).",
+    )
+    error: str = Field(
+        ...,
+        title="Error",
+        # The consumer writes this into GundiTrace.error, a varchar(500).
+        max_length=500,
+        description="Human-readable description of the failure.",
+    )
+    error_type: Optional[str] = Field(
+        None,
+        title="Error Type",
+        description="The exception class name, when the failure was an exception.",
+    )
+
+
+class ObservationTransformationFailed(SystemEventBaseModel):
+    schema_version: str = Field("v1", const=True)
+    payload: FailedTransformation
