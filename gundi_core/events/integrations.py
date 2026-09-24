@@ -232,3 +232,53 @@ class ObservationFiltered(SystemEventBaseModel):
     # The trace's `filtered_at` is the envelope's `timestamp`; the payload does not repeat it.
     schema_version: str = Field("v1", const=True)
     payload: FilteredObservation
+# Observation dropped because its transform raised or produced nothing, so the portal
+# can mark the trace with has_error (GUNDI-5178 phase 3). Unlike a filtered drop this
+# IS an error and belongs in connection health. Defined ahead of its publisher so it
+# rides the same release as ObservationFiltered — coordinating releases is the
+# expensive part, not the schema.
+
+
+class FailedTransformation(BaseModel):
+    gundi_id: Union[UUID, str] = Field(
+        ...,
+        title="Gundi ID",
+        description="The unique ID of the observation whose transform failed.",
+    )
+    related_to: Optional[Union[UUID, str]] = Field(
+        None,
+        title="Related To",
+        description="The Gundi ID of the parent object, for updates and attachments.",
+    )
+    data_provider_id: Union[UUID, str] = Field(
+        ...,
+        title="Data Provider ID",
+        description="The provider the observation came from.",
+    )
+    destination_id: Union[UUID, str] = Field(
+        ...,
+        title="Destination ID",
+        description="The destination whose transform failed.",
+    )
+    observation_type: Optional[str] = Field(
+        None,
+        title="Observation Type",
+        description="Stream type of the dropped observation (ev/obv/...).",
+    )
+    error: str = Field(
+        ...,
+        title="Error",
+        # The consumer writes this into GundiTrace.error, a varchar(500).
+        max_length=500,
+        description="Human-readable description of the failure.",
+    )
+    error_type: Optional[str] = Field(
+        None,
+        title="Error Type",
+        description="The exception class name, when the failure was an exception.",
+    )
+
+
+class ObservationTransformationFailed(SystemEventBaseModel):
+    schema_version: str = Field("v1", const=True)
+    payload: FailedTransformation

@@ -7,9 +7,11 @@ import pydantic
 import pytest
 
 from gundi_core.events import (
+    FailedTransformation,
     FilteredObservation,
     ObservationFiltered,
     ObservationFilterReason,
+    ObservationTransformationFailed,
 )
 
 
@@ -193,3 +195,68 @@ def test_every_known_reason_fits_that_column(
     )
 
     assert payload.filtered_by == reason.value
+
+
+# --- ObservationTransformationFailed -------------------------------------------
+
+
+@pytest.fixture
+def failed_transformation(gundi_id, provider_id, destination_id):
+    return FailedTransformation(
+        gundi_id=gundi_id,
+        data_provider_id=provider_id,
+        destination_id=destination_id,
+        observation_type="obv",
+        error="KeyError: 'recorded_at'",
+        error_type="KeyError",
+    )
+
+
+def test_transformation_failed_round_trips(failed_transformation):
+    event = ObservationTransformationFailed(payload=failed_transformation)
+    parsed = ObservationTransformationFailed.parse_obj(json.loads(event.json()))
+    assert parsed.payload == failed_transformation
+    assert parsed.dict()["event_type"] == "ObservationTransformationFailed"
+
+
+def test_transformation_failed_pins_its_schema_version(failed_transformation):
+    with pytest.raises(pydantic.ValidationError):
+        ObservationTransformationFailed(
+            payload=failed_transformation, schema_version="v2"
+        )
+
+
+def test_failed_transformation_requires_the_error(gundi_id, provider_id, destination_id):
+    with pytest.raises(pydantic.ValidationError):
+        FailedTransformation(
+            gundi_id=gundi_id,
+            data_provider_id=provider_id,
+            destination_id=destination_id,
+        )
+
+
+def test_failed_transformation_error_is_bounded_by_the_consumers_column(
+    gundi_id, provider_id, destination_id
+):
+    # GundiTrace.error is varchar(500); a longer message must fail here, not there.
+    with pytest.raises(pydantic.ValidationError):
+        FailedTransformation(
+            gundi_id=gundi_id,
+            data_provider_id=provider_id,
+            destination_id=destination_id,
+            error="x" * 501,
+        )
+
+
+def test_failed_transformation_tolerates_absent_optionals(
+    gundi_id, provider_id, destination_id
+):
+    payload = FailedTransformation(
+        gundi_id=gundi_id,
+        data_provider_id=provider_id,
+        destination_id=destination_id,
+        error="transformer returned nothing",
+    )
+    assert payload.related_to is None
+    assert payload.observation_type is None
+    assert payload.error_type is None
