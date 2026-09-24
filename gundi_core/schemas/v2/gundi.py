@@ -403,23 +403,23 @@ class RouteConfiguration(BaseModel):
 # carries a valid `mode`.
 
 
-class RouteFilterType(str, Enum):
+class SourceFilterType(str, Enum):
     LIST = "list"
     # Reserved by the portal's model; nothing evaluates them yet.
     GEOBOUNDARY = "geoboundary"
     TIME = "time"
 
 
-class RouteFilterMode(str, Enum):
+class SourceListFilterMode(str, Enum):
     WHITELIST = "whitelist"
     BLACKLIST = "blacklist"
 
 
-class RouteFilter(BaseModel):
+class SourceListFilter(BaseModel):
     type: Optional[str] = Field(
-        RouteFilterType.LIST.value,
+        SourceFilterType.LIST.value,
         example="list",
-        description="Which kind of filter this is; see RouteFilterType.",
+        description="Which kind of filter this is; see SourceFilterType.",
     )
     mode: Optional[str] = Field(
         None,
@@ -443,7 +443,7 @@ class RouteFilter(BaseModel):
         return value
 
     def is_device_list(self) -> bool:
-        return self.type == RouteFilterType.LIST.value
+        return self.type == SourceFilterType.LIST.value
 
     def ids_for(self, provider_id) -> Optional[List[str]]:
         """None when the rule does not name this provider, which is not an empty list."""
@@ -470,7 +470,7 @@ class Route(BaseModel):
     additional: Optional[Dict[str, Any]] = {}
     # Route retrieve only; a list endpoint carries none. One rule per destination, so the
     # portal's serializer must emit only the `list` one.
-    filters: Optional[Dict[str, RouteFilter]] = Field(
+    filters: Optional[Dict[str, SourceListFilter]] = Field(
         {},
         description="Filters on this route, keyed by destination ID.",
     )
@@ -483,7 +483,7 @@ class Route(BaseModel):
             return {str(key): rule for key, rule in value.items()}
         return value
 
-    def filter_for(self, destination_id) -> Optional[RouteFilter]:
+    def filter_for(self, destination_id) -> Optional[SourceListFilter]:
         if destination_id is None:
             return None
         return (self.filters or {}).get(str(destination_id))

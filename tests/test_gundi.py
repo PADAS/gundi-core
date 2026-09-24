@@ -8,9 +8,9 @@ import pytest
 
 from gundi_core.schemas.v2 import (
     Route,
-    RouteFilter,
-    RouteFilterMode,
-    RouteFilterType,
+    SourceListFilter,
+    SourceListFilterMode,
+    SourceFilterType,
 )
 
 
@@ -138,7 +138,7 @@ def test_filter_rejects_a_malformed_provider_map(destination_id):
 
 
 def test_route_filter_can_be_built_directly(provider_id):
-    rule = RouteFilter(mode="blacklist", by_provider={provider_id: ["qa-test-device"]})
+    rule = SourceListFilter(mode="blacklist", by_provider={provider_id: ["qa-test-device"]})
 
     assert rule.type == "list"
     assert rule.by_provider[provider_id] == ["qa-test-device"]
@@ -146,9 +146,9 @@ def test_route_filter_can_be_built_directly(provider_id):
 
 def test_filter_constants_match_the_wire_values():
     # Both sides compare against these; renaming one silently stops matching.
-    assert RouteFilterType.LIST.value == "list"
-    assert RouteFilterMode.WHITELIST.value == "whitelist"
-    assert RouteFilterMode.BLACKLIST.value == "blacklist"
+    assert SourceFilterType.LIST.value == "list"
+    assert SourceListFilterMode.WHITELIST.value == "whitelist"
+    assert SourceListFilterMode.BLACKLIST.value == "blacklist"
 
 
 def test_filter_lookup_works_with_the_uuids_a_consumer_actually_holds(route_payload):
@@ -224,8 +224,8 @@ def test_uuid_keys_survive_direct_construction(destination_id, provider_id):
     # used to raise "str type expected" before the keys were normalized.
     route = Route(
         filters={
-            uuid.UUID(destination_id): RouteFilter(
-                mode=RouteFilterMode.WHITELIST.value,
+            uuid.UUID(destination_id): SourceListFilter(
+                mode=SourceListFilterMode.WHITELIST.value,
                 by_provider={uuid.UUID(provider_id): ["collar-001"]},
             )
         }
@@ -279,7 +279,7 @@ def test_a_rule_of_another_type_is_not_a_device_list(destination_id, provider_id
     )
 
     rule = route.filter_for(destination_id)
-    assert rule.mode == RouteFilterMode.WHITELIST.value
+    assert rule.mode == SourceListFilterMode.WHITELIST.value
     assert not rule.is_device_list()
 
 
@@ -308,4 +308,4 @@ def test_one_rule_per_destination(destination_id, provider_id):
         }
     )
 
-    assert isinstance(route.filters[destination_id], RouteFilter)
+    assert isinstance(route.filters[destination_id], SourceListFilter)
