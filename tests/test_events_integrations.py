@@ -166,19 +166,18 @@ def test_filtered_by_accepts_a_reason_the_package_does_not_know(
     assert payload.filtered_by == "geoboundary"
 
 
-def test_filtered_by_is_bounded_by_the_consumers_column(
+def test_filtered_by_truncates_to_the_consumers_column(
     gundi_id, provider_id, destination_id
 ):
-    # A reason too long to store is not a leniency case: the consumer could not persist
-    # it under any circumstance, so it fails here, in the publisher, rather than as a
-    # database error after the drop has already happened.
-    with pytest.raises(pydantic.ValidationError):
-        FilteredObservation(
-            gundi_id=gundi_id,
-            data_provider_id=provider_id,
-            destination_id=destination_id,
-            filtered_by="d" * 33,
-        )
+    # Rejecting would raise inside the very handler reporting the drop and lose the
+    # record; the trace column is 32 chars, so longer values truncate instead.
+    payload = FilteredObservation(
+        gundi_id=gundi_id,
+        data_provider_id=provider_id,
+        destination_id=destination_id,
+        filtered_by="x" * 40,
+    )
+    assert payload.filtered_by == "x" * 32
 
 
 @pytest.mark.parametrize("reason", list(ObservationFilterReason))
@@ -235,17 +234,18 @@ def test_failed_transformation_requires_the_error(gundi_id, provider_id, destina
         )
 
 
-def test_failed_transformation_error_is_bounded_by_the_consumers_column(
+def test_failed_transformation_error_truncates_to_the_consumers_column(
     gundi_id, provider_id, destination_id
 ):
-    # GundiTrace.error is varchar(500); a longer message must fail here, not there.
-    with pytest.raises(pydantic.ValidationError):
-        FailedTransformation(
-            gundi_id=gundi_id,
-            data_provider_id=provider_id,
-            destination_id=destination_id,
-            error="x" * 501,
-        )
+    # GundiTrace.error is varchar(500), and the publisher builds this from
+    # str(exception) inside its error handler — rejecting would kill the report.
+    payload = FailedTransformation(
+        gundi_id=gundi_id,
+        data_provider_id=provider_id,
+        destination_id=destination_id,
+        error="x" * 501,
+    )
+    assert payload.error == "x" * 500
 
 
 def test_failed_transformation_tolerates_absent_optionals(
@@ -260,3 +260,11 @@ def test_failed_transformation_tolerates_absent_optionals(
     assert payload.related_to is None
     assert payload.observation_type is None
     assert payload.error_type is None
+
+
+def test_filter_reason_bridges_from_the_rule_mode():
+    # The publisher holds a rule's mode; the consumer matches this enum. Without the
+    # bridge, filtered_by="whitelist" validates and silently never matches.
+    assert ObservationFilterReason.for_mode("whitelist") is ObservationFilterReason.DEVICE_WHITELIST
+    assert ObservationFilterReason.for_mode("blacklist") is ObservationFilterReason.DEVICE_BLACKLIST
+

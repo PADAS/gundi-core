@@ -309,3 +309,88 @@ def test_one_rule_per_destination(destination_id, provider_id):
     )
 
     assert isinstance(route.filters[destination_id], SourceListFilter)
+
+
+# --- Review round: fail-open per entry, canonical keys, and the enforcement helper ---
+
+
+def _route_with_filters(filters):
+    return Route.parse_obj({
+        "id": "11111111-1111-1111-1111-111111111111",
+        "name": "r",
+        "owner": "22222222-2222-2222-2222-222222222222",
+        "filters": filters,
+    })
+
+
+DEST = "33333333-3333-3333-3333-333333333333"
+PROV = "44444444-4444-4444-4444-444444444444"
+
+
+def test_one_bad_rule_does_not_reject_the_route():
+    # Fail-open must hold per ENTRY: losing every destination's rules (and the whole
+    # route payload) over one malformed value is the exact loss the module prevents.
+    route = _route_with_filters({
+        DEST: {"type": "list", "mode": "whitelist", "by_provider": {PROV: ["c1"]}},
+        "55555555-5555-5555-5555-555555555555": "garbage",
+    })
+    assert route.filter_for(DEST) is not None
+    assert route.filter_for("55555555-5555-5555-5555-555555555555") is None
+
+
+def test_null_provider_value_means_named_with_zero_devices():
+    route = _route_with_filters({
+        DEST: {"type": "list", "mode": "whitelist", "by_provider": {PROV: None}},
+    })
+    assert route.filter_for(DEST).ids_for(PROV) == []
+
+
+def test_non_canonical_uuid_keys_still_match():
+    # str() of an uppercase key is a no-op while str(UUID) is lowercase — without
+    # canonicalization the whitelist silently applies to nothing.
+    import uuid
+    route = _route_with_filters({
+        DEST.upper(): {"type": "list", "mode": "whitelist", "by_provider": {PROV.upper(): ["c1"]}},
+    })
+    rule = route.filter_for(uuid.UUID(DEST))
+    assert rule is not None
+    assert rule.ids_for(uuid.UUID(PROV)) == ["c1"]
+
+
+def test_a_disabled_rule_does_not_speak():
+    rule = SourceListFilter.parse_obj(
+        {"type": "list", "mode": "whitelist", "enabled": False, "by_provider": {PROV: ["c1"]}}
+    )
+    assert rule.ids_for(PROV) is None
+    assert rule.allows(PROV, "c1") is None
+
+
+def test_a_rule_without_a_usable_mode_does_not_speak():
+    # It never claimed whitelist OR blacklist semantics; guessing either loses data.
+    rule = SourceListFilter.parse_obj({"type": "list", "by_provider": {PROV: ["c1"]}})
+    assert rule.is_device_list() is False
+    assert rule.allows(PROV, "c1") is None
+
+
+def test_allows_encodes_the_enforcement_semantics_once():
+    whitelist = SourceListFilter.parse_obj(
+        {"type": "list", "mode": "whitelist", "by_provider": {PROV: ["c1"]}}
+    )
+    assert whitelist.allows(PROV, "c1") is True
+    assert whitelist.allows(PROV, "c2") is False
+    assert whitelist.allows("99999999-9999-9999-9999-999999999999", "c1") is None
+    blacklist = SourceListFilter.parse_obj(
+        {"type": "list", "mode": "blacklist", "by_provider": {PROV: ["c1"]}}
+    )
+    assert blacklist.allows(PROV, "c1") is False
+    assert blacklist.allows(PROV, "c2") is True
+
+
+def test_a_zero_device_whitelist_allows_nothing():
+    # The falsy-[] trap: a provider named with zero devices is a closed set, not
+    # an unnamed one.
+    rule = SourceListFilter.parse_obj(
+        {"type": "list", "mode": "whitelist", "by_provider": {PROV: []}}
+    )
+    assert rule.allows(PROV, "anything") is False
+

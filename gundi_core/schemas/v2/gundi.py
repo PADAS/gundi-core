@@ -392,15 +392,32 @@ class RouteConfiguration(BaseModel):
 
 # Device routing rules the portal serves per destination (GUNDI-5178).
 #
-# Keys are JSON strings, while the ids a consumer holds are UUIDs
-# (`ConnectionIntegration.id` parses into one). Use `filter_for()`/`ids_for()`, which
-# take either — a raw `.get()` misses every time, and since no rule means allow, a
-# whitelist would then apply to nothing at all.
-#
-# Enforcement is fail-open: `type` and `mode` stay plain strings because an enum would
-# reject the whole route payload over one bad value, and a null `enabled` is left falsy.
-# Gate on `is_device_list()` before reading `mode`/`by_provider` — every rule type
-# carries a valid `mode`.
+# Fail-open: a malformed rule must never reject the whole Route payload, so `type` and
+# `mode` are plain strings, bad by_provider values are dropped per entry, and the
+# helpers answer None for anything the rule does not clearly say. Read through
+# `filter_for()` / `allows()` — keys arrive as JSON strings while consumers hold UUIDs,
+# and both are canonicalized (a raw `.get()` can silently miss).
+
+
+def _canonical_key(key) -> str:
+    # UUID text has many spellings (case, hyphens); str(UUID) is the canonical one.
+    try:
+        return str(UUID(str(key)))
+    except (ValueError, AttributeError, TypeError):
+        return str(key)
+
+
+def _canonicalize_id_map(value, clean_value):
+    if value is None:
+        return {}
+    if isinstance(value, dict):
+        cleaned = {}
+        for key, item in value.items():
+            item = clean_value(item)
+            if item is not None:
+                cleaned[_canonical_key(key)] = item
+        return cleaned
+    return value
 
 
 class SourceFilterType(str, Enum):
@@ -434,22 +451,42 @@ class SourceListFilter(BaseModel):
         description="External source IDs the rule covers, keyed by data provider ID.",
     )
 
-    @validator("by_provider", pre=True, always=True)
+    @validator("by_provider", pre=True, always=True, allow_reuse=True)
     def _normalize_by_provider(cls, value):
-        if value is None:
-            return {}
-        if isinstance(value, dict):
-            return {str(key): ids for key, ids in value.items()}
-        return value
+        def clean_ids(item):
+            # null means "named with zero devices" — distinct from unnamed; anything
+            # that is not a list cannot be interpreted and drops just that entry.
+            if item is None:
+                return []
+            if isinstance(item, (list, tuple)):
+                return [str(external_id) for external_id in item]
+            return None
+        return _canonicalize_id_map(value, clean_ids)
 
     def is_device_list(self) -> bool:
-        return self.type == SourceFilterType.LIST.value
+        # A usable mode is part of the gate: a rule without one never claimed
+        # whitelist semantics, and treating it as either mode loses data.
+        return (
+            self.type == SourceFilterType.LIST.value
+            and self.mode in (SourceListFilterMode.WHITELIST.value, SourceListFilterMode.BLACKLIST.value)
+        )
 
     def ids_for(self, provider_id) -> Optional[List[str]]:
-        """None when the rule does not name this provider, which is not an empty list."""
-        if provider_id is None:
+        """None when the rule does not speak for this provider (unnamed, disabled, or
+        not a usable device list) — which is NOT an empty list: [] means the provider
+        was named with zero devices."""
+        if provider_id is None or not self.enabled or not self.is_device_list():
             return None
-        return (self.by_provider or {}).get(str(provider_id))
+        return (self.by_provider or {}).get(_canonical_key(provider_id))
+
+    def allows(self, provider_id, external_id) -> Optional[bool]:
+        """The enforcement question in one place: True/False when the rule decides this
+        observation, None when it does not speak (then the default is allow)."""
+        ids = self.ids_for(provider_id)
+        if ids is None:
+            return None
+        listed = str(external_id) in ids
+        return listed if self.mode == SourceListFilterMode.WHITELIST.value else not listed
 
 
 class Route(BaseModel):
@@ -475,18 +512,18 @@ class Route(BaseModel):
         description="Filters on this route, keyed by destination ID.",
     )
 
-    @validator("filters", pre=True, always=True)
+    @validator("filters", pre=True, always=True, allow_reuse=True)
     def _normalize_filters(cls, value):
-        if value is None:
-            return {}
-        if isinstance(value, dict):
-            return {str(key): rule for key, rule in value.items()}
-        return value
+        def clean_rule(rule):
+            # A non-dict rule cannot be interpreted; dropping it keeps every other
+            # destination's rules alive instead of rejecting the whole Route.
+            return rule if isinstance(rule, (dict, SourceListFilter)) else None
+        return _canonicalize_id_map(value, clean_rule)
 
     def filter_for(self, destination_id) -> Optional[SourceListFilter]:
         if destination_id is None:
             return None
-        return (self.filters or {}).get(str(destination_id))
+        return (self.filters or {}).get(_canonical_key(destination_id))
 
 
 class IntegrationAction(BaseModel):

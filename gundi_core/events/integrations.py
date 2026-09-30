@@ -181,15 +181,19 @@ class IntegrationWebhookFailed(SystemEventBaseModel):
     payload: WebhookExecutionFailed
 
 
-# Observation dropped for one destination, so the portal can mark the trace
-# (GUNDI-5178). An event the consumer cannot match to a trace row is acked and
-# DISCARDED against a forward-only pipeline, so the record is then lost for good —
-# hence the required identity fields, and schema_version pinned like the batch envelopes.
+# Observation dropped for one destination (GUNDI-5178). The pipeline is forward-only:
+# an event the consumer cannot match to a trace row is acked and lost for good.
 
 
 class ObservationFilterReason(str, Enum):
     DEVICE_WHITELIST = "device_whitelist"
     DEVICE_BLACKLIST = "device_blacklist"
+
+    @classmethod
+    def for_mode(cls, mode) -> "ObservationFilterReason":
+        """Bridge from SourceListFilterMode values — the publisher holds a rule's
+        mode ('whitelist'), the consumer matches this enum ('device_whitelist')."""
+        return cls.DEVICE_BLACKLIST if mode == "blacklist" else cls.DEVICE_WHITELIST
 
 
 class FilteredObservation(BaseModel):
@@ -218,8 +222,12 @@ class FilteredObservation(BaseModel):
         title="External Source ID",
         description="The device ID the rule matched on.",
     )
-    # Plain string so an unrecognised kind still records the drop, but bounded at the
-    # consumer's column width, which a longer value could not fit under any circumstance.
+    observation_type: Optional[str] = Field(
+        None,
+        title="Observation Type",
+        description="Stream type of the dropped observation; see StreamPrefixEnum (ev/obv/...).",
+    )
+    # Plain string so an unrecognised kind still records the drop.
     filtered_by: Optional[str] = Field(
         None,
         title="Filtered By",
@@ -227,16 +235,21 @@ class FilteredObservation(BaseModel):
         description="Which kind of rule dropped it; see ObservationFilterReason.",
     )
 
+    @validator("filtered_by", pre=True)
+    def _truncate_filtered_by(cls, value):
+        # max_length REJECTS, and raising inside the code that reports a drop loses
+        # the record; the trace column is 32 chars, so longer values truncate.
+        if isinstance(value, str) and len(value) > 32:
+            return value[:32]
+        return value
+
 
 class ObservationFiltered(SystemEventBaseModel):
     # The trace's `filtered_at` is the envelope's `timestamp`; the payload does not repeat it.
     schema_version: str = Field("v1", const=True)
     payload: FilteredObservation
-# Observation dropped because its transform raised or produced nothing, so the portal
-# can mark the trace with has_error (GUNDI-5178 phase 3). Unlike a filtered drop this
-# IS an error and belongs in connection health. Defined ahead of its publisher so it
-# rides the same release as ObservationFiltered — coordinating releases is the
-# expensive part, not the schema.
+# Observation dropped because its transform raised or produced nothing (GUNDI-5178
+# phase 3). Unlike a filtered drop this IS an error and belongs in connection health.
 
 
 class FailedTransformation(BaseModel):
@@ -263,7 +276,7 @@ class FailedTransformation(BaseModel):
     observation_type: Optional[str] = Field(
         None,
         title="Observation Type",
-        description="Stream type of the dropped observation (ev/obv/...).",
+        description="Stream type of the dropped observation; see StreamPrefixEnum (ev/obv/...).",
     )
     error: str = Field(
         ...,
@@ -277,6 +290,19 @@ class FailedTransformation(BaseModel):
         title="Error Type",
         description="The exception class name, when the failure was an exception.",
     )
+    error_traceback: Optional[str] = Field(
+        None,
+        title="Error Traceback",
+        description="Optional traceback, as the other error payloads carry.",
+    )
+
+    @validator("error", pre=True)
+    def _truncate_error(cls, value):
+        # max_length REJECTS, and the publisher builds this from str(exception) inside
+        # its error handler — a long response body must not kill the failure report.
+        if isinstance(value, str) and len(value) > 500:
+            return value[:500]
+        return value
 
 
 class ObservationTransformationFailed(SystemEventBaseModel):
