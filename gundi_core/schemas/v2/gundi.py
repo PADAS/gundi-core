@@ -442,8 +442,12 @@ class SourceListFilter(BaseModel):
         example="list",
         description="Which kind of filter this is; see SourceFilterType.",
     )
-    mode: Optional[str] = Field(
-        None,
+    # Required so a null-effect rule cannot exist, but deliberately a plain string,
+    # not an enum: an unknown mode from a newer producer must parse and simply never
+    # speak, not take the rule down in older consumers. No default either - mode is
+    # the gate's polarity, and guessing it could invert the producer's intent.
+    mode: str = Field(
+        ...,
         example="whitelist",
         description="'whitelist' to allow only the listed devices, 'blacklist' to drop them.",
     )

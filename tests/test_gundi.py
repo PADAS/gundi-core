@@ -417,9 +417,25 @@ def test_a_disabled_rule_does_not_speak():
     assert rule.allows(PROV, "c1") is None
 
 
-def test_a_rule_without_a_usable_mode_does_not_speak():
-    # It never claimed whitelist OR blacklist semantics; guessing either loses data.
-    rule = SourceListFilter.parse_obj({"type": "list", "by_provider": {PROV: ["c1"]}})
+def test_a_rule_without_a_mode_cannot_exist():
+    # mode is the gate's polarity, so a null-effect rule must not be constructible
+    # (producer-side), and on the wire the entry drops alone (consumer fail-open) -
+    # the same allow outcome "doesn't speak" used to give, without the zombie object.
+    with pytest.raises(pydantic.ValidationError):
+        SourceListFilter.parse_obj({"type": "list", "by_provider": {PROV: ["c1"]}})
+
+    route = _route_with_filters({
+        DEST: {"type": "list", "by_provider": {PROV: ["c1"]}},
+    })
+    assert route.filter_for(DEST) is None
+
+
+def test_a_rule_with_an_unknown_mode_does_not_speak():
+    # Mandatory is not an enum: a mode string from a newer producer must parse and
+    # simply never decide, not take the rule down in older consumers.
+    rule = SourceListFilter.parse_obj(
+        {"type": "list", "mode": "quarantine", "by_provider": {PROV: ["c1"]}}
+    )
     assert rule.is_device_list() is False
     assert rule.allows(PROV, "c1") is None
 
