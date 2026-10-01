@@ -238,7 +238,11 @@ class FilteredObservation(BaseModel):
     @validator("filtered_by", pre=True)
     def _truncate_filtered_by(cls, value):
         # max_length REJECTS, and raising inside the code that reports a drop loses
-        # the record; the trace column is 32 chars, so longer values truncate.
+        # the record; the trace column is 32 chars, so longer values truncate. bytes
+        # decode first — pydantic would coerce them to str AFTER this validator,
+        # bypassing the truncation and rejecting at max_length.
+        if isinstance(value, bytes):
+            value = value.decode(errors="replace")
         if isinstance(value, str) and len(value) > 32:
             return value[:32]
         return value
@@ -300,6 +304,10 @@ class FailedTransformation(BaseModel):
     def _truncate_error(cls, value):
         # max_length REJECTS, and the publisher builds this from str(exception) inside
         # its error handler — a long response body must not kill the failure report.
+        # bytes (e.g. response.content) decode first: pydantic would coerce them to
+        # str AFTER this validator, bypassing the truncation and rejecting at max_length.
+        if isinstance(value, bytes):
+            value = value.decode(errors="replace")
         if isinstance(value, str) and len(value) > 500:
             return value[:500]
         return value

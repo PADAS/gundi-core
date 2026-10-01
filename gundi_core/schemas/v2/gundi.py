@@ -458,13 +458,14 @@ class SourceListFilter(BaseModel):
     @validator("by_provider", pre=True, always=True, allow_reuse=True)
     def _normalize_by_provider(cls, value):
         def clean_ids(item):
-            # null means "named with zero devices" — distinct from unnamed; anything
-            # that is not a list cannot be interpreted and drops just that entry.
-            if item is None:
-                return []
+            # A named provider's value that cannot be read as a list — null included —
+            # becomes "named with zero devices". Naming is the restriction: for a
+            # whitelist [] allows nothing, so a garbled value never silently opens the
+            # gate for the provider's every device; for a blacklist [] blocks nothing,
+            # the same fail-open as dropping it.
             if isinstance(item, (list, tuple)):
                 return [str(external_id) for external_id in item]
-            return None
+            return []
         return _canonicalize_id_map(value, clean_ids)
 
     def is_device_list(self) -> bool:
@@ -486,11 +487,17 @@ class SourceListFilter(BaseModel):
 
     def allows(self, provider_id, external_id) -> Optional[bool]:
         """The enforcement question in one place: True/False when the rule decides this
-        observation, None when it does not speak (then the default is allow)."""
+        observation, None when it does not speak (then the default is allow).
+
+        External ids compare verbatim against what the rule stores (the portal's
+        Source.external_id string) — pass that string, not a parsed form of it."""
         ids = self.ids_for(provider_id)
         if ids is None:
             return None
-        listed = str(external_id) in ids
+        # An id-less observation is "not a listed device" by decision, not by the
+        # accident of str(None) == "None" aliasing a device named "None": a whitelist
+        # passes only listed devices, a blacklist only drops them.
+        listed = external_id is not None and str(external_id) in ids
         return listed if self.mode == SourceListFilterMode.WHITELIST.value else not listed
 
 
@@ -519,6 +526,12 @@ class Route(BaseModel):
 
     @validator("filters", pre=True, always=True, allow_reuse=True)
     def _normalize_filters(cls, value):
+        # A block that is not a mapping at all (a serializer regression emitting []
+        # is the classic slip) must not make the whole Route unparseable and halt
+        # delivery for the connection; it reads as "no filters".
+        if value is not None and not isinstance(value, (dict,)):
+            return {}
+
         def clean_rule(rule):
             # Each rule parses on its own: a rule that cannot be interpreted — not a
             # dict, or a dict with invalid values — drops alone, keeping every other

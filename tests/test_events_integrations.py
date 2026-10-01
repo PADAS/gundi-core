@@ -268,3 +268,24 @@ def test_filter_reason_bridges_from_the_rule_mode():
     assert ObservationFilterReason.for_mode("whitelist") is ObservationFilterReason.DEVICE_WHITELIST
     assert ObservationFilterReason.for_mode("blacklist") is ObservationFilterReason.DEVICE_BLACKLIST
 
+
+
+def test_truncation_covers_bytes_input(gundi_id, provider_id, destination_id):
+    # pydantic coerces bytes to str AFTER the pre-validator, which would bypass the
+    # truncation and reject at max_length — inside the error handler the truncation
+    # exists to protect (e.g. error=response.content).
+    payload = FailedTransformation(
+        gundi_id=gundi_id,
+        data_provider_id=provider_id,
+        destination_id=destination_id,
+        error=b"x" * 501,
+    )
+    assert payload.error == "x" * 500
+
+    filtered = FilteredObservation(
+        gundi_id=gundi_id,
+        data_provider_id=provider_id,
+        destination_id=destination_id,
+        filtered_by=b"y" * 40,
+    )
+    assert filtered.filtered_by == "y" * 32

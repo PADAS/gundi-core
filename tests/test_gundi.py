@@ -361,6 +361,42 @@ def test_null_provider_value_means_named_with_zero_devices():
     assert route.filter_for(DEST).ids_for(PROV) == []
 
 
+def test_a_garbled_provider_value_also_means_named_with_zero_devices():
+    # {P: "collar-001"} is a producer typo on a NAMED provider — naming is the
+    # restriction, so a whitelist must allow nothing from P rather than silently
+    # allowing its every device; for a blacklist [] blocks nothing, the same
+    # fail-open as dropping the entry would give.
+    route = _route_with_filters({
+        DEST: {"type": "list", "mode": "whitelist", "by_provider": {PROV: "collar-001"}},
+    })
+    rule = route.filter_for(DEST)
+    assert rule.ids_for(PROV) == []
+    assert rule.allows(PROV, "collar-001") is False
+
+
+def test_a_non_mapping_filters_block_reads_as_no_filters():
+    # A serializer regression emitting [] for an empty mapping must not make the
+    # whole Route unparseable and halt delivery for the connection.
+    route = Route.parse_obj({"name": "r", "filters": []})
+
+    assert route.filters == {}
+    assert route.filter_for(DEST) is None
+
+
+def test_an_observation_without_an_external_id_is_not_a_listed_device():
+    # By decision, not by str(None) == "None" aliasing a device named "None":
+    # a whitelist passes only listed devices, a blacklist only drops them.
+    whitelist = _route_with_filters({
+        DEST: {"type": "list", "mode": "whitelist", "by_provider": {PROV: ["None"]}},
+    }).filter_for(DEST)
+    blacklist = _route_with_filters({
+        DEST: {"type": "list", "mode": "blacklist", "by_provider": {PROV: ["None"]}},
+    }).filter_for(DEST)
+
+    assert whitelist.allows(PROV, None) is False
+    assert blacklist.allows(PROV, None) is True
+
+
 def test_non_canonical_uuid_keys_still_match():
     # str() of an uppercase key is a no-op while str(UUID) is lowercase — without
     # canonicalization the whitelist silently applies to nothing.
