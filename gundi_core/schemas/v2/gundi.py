@@ -2,7 +2,7 @@ from typing import List, Optional, Dict, Any
 from typing import Union
 from uuid import UUID
 from datetime import datetime, timezone
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, ValidationError, validator
 from enum import Enum, IntEnum
 
 
@@ -390,6 +390,121 @@ class RouteConfiguration(BaseModel):
     data: Optional[Dict[str, Any]] = {}
 
 
+# Device routing rules the portal serves per destination (GUNDI-5178).
+#
+# Fail-open: a malformed rule must never reject the whole Route payload, so `type` and
+# `mode` are plain strings, bad by_provider values are dropped per entry, and the
+# helpers answer None for anything the rule does not clearly say. Read through
+# `filter_for()` / `allows()` — keys arrive as JSON strings while consumers hold UUIDs,
+# and both are canonicalized (a raw `.get()` can silently miss).
+
+
+def _canonical_key(key) -> str:
+    # UUID text has many spellings (case, hyphens); str(UUID) is the canonical one.
+    try:
+        return str(UUID(str(key)))
+    except (ValueError, AttributeError, TypeError):
+        return str(key)
+
+
+def _canonicalize_id_map(value, clean_value):
+    if value is None:
+        return {}
+    if isinstance(value, dict):
+        cleaned = {}
+        for key, item in value.items():
+            item = clean_value(item)
+            if item is not None:
+                cleaned[_canonical_key(key)] = item
+        return cleaned
+    return value
+
+
+class SourceFilterType(str, Enum):
+    LIST = "list"
+    # Reserved by the portal's model; nothing evaluates them yet.
+    GEOBOUNDARY = "geoboundary"
+    TIME = "time"
+
+
+class SourceListFilterMode(str, Enum):
+    WHITELIST = "whitelist"
+    BLACKLIST = "blacklist"
+
+
+class SourceListFilter(BaseModel):
+    # One class per filter kind, so the type is identity rather than data: pinned
+    # to keep a geo/time rule from masquerading as a device list. Still on the
+    # wire for producers and a future discriminated union.
+    type: str = Field(
+        SourceFilterType.LIST.value,
+        const=True,
+        example="list",
+        description="Which kind of filter this is; see SourceFilterType.",
+    )
+    # Required so a null-effect rule cannot exist, but deliberately a plain string,
+    # not an enum: an unknown mode from a newer producer must parse and simply never
+    # speak, not take the rule down in older consumers. No default either - mode is
+    # the gate's polarity, and guessing it could invert the producer's intent.
+    mode: str = Field(
+        ...,
+        example="whitelist",
+        description="'whitelist' to allow only the listed devices, 'blacklist' to drop them.",
+    )
+    enabled: Optional[bool] = True
+    # Grouped by provider: `external_id` is unique only within one, and a provider absent
+    # from the map is untouched by the rule.
+    by_provider: Optional[Dict[str, List[str]]] = Field(
+        {},
+        description="External source IDs the rule covers, keyed by data provider ID.",
+    )
+
+    @validator("by_provider", pre=True, always=True, allow_reuse=True)
+    def _normalize_by_provider(cls, value):
+        def clean_ids(item):
+            # A named provider's value that cannot be read as a list — null included —
+            # becomes "named with zero devices". Naming is the restriction: for a
+            # whitelist [] allows nothing, so a garbled value never silently opens the
+            # gate for the provider's every device; for a blacklist [] blocks nothing,
+            # the same fail-open as dropping it.
+            if isinstance(item, (list, tuple)):
+                return [str(external_id) for external_id in item]
+            return []
+        return _canonicalize_id_map(value, clean_ids)
+
+    def is_device_list(self) -> bool:
+        # `type` is pinned by the class, so only the mode can disqualify a rule:
+        # one without a usable mode never claimed whitelist semantics, and
+        # treating it as either mode loses data.
+        return self.mode in (
+            SourceListFilterMode.WHITELIST.value,
+            SourceListFilterMode.BLACKLIST.value,
+        )
+
+    def ids_for(self, provider_id) -> Optional[List[str]]:
+        """None when the rule does not speak for this provider (unnamed, disabled, or
+        not a usable device list) — which is NOT an empty list: [] means the provider
+        was named with zero devices."""
+        if provider_id is None or not self.enabled or not self.is_device_list():
+            return None
+        return (self.by_provider or {}).get(_canonical_key(provider_id))
+
+    def allows(self, provider_id, external_id) -> Optional[bool]:
+        """The enforcement question in one place: True/False when the rule decides this
+        observation, None when it does not speak (then the default is allow).
+
+        External ids compare verbatim against what the rule stores (the portal's
+        Source.external_id string) — pass that string, not a parsed form of it."""
+        ids = self.ids_for(provider_id)
+        if ids is None:
+            return None
+        # An id-less observation is "not a listed device" by decision, not by the
+        # accident of str(None) == "None" aliasing a device named "None": a whitelist
+        # passes only listed devices, a blacklist only drops them.
+        listed = external_id is not None and str(external_id) in ids
+        return listed if self.mode == SourceListFilterMode.WHITELIST.value else not listed
+
+
 class Route(BaseModel):
     id: Union[UUID, str] = Field(
         None,
@@ -406,6 +521,39 @@ class Route(BaseModel):
     destinations: Optional[List[ConnectionIntegration]]
     configuration: Optional[RouteConfiguration]
     additional: Optional[Dict[str, Any]] = {}
+    # Route retrieve only; a list endpoint carries none. One rule per destination, so the
+    # portal's serializer must emit only the `list` one.
+    filters: Optional[Dict[str, SourceListFilter]] = Field(
+        {},
+        description="Filters on this route, keyed by destination ID.",
+    )
+
+    @validator("filters", pre=True, always=True, allow_reuse=True)
+    def _normalize_filters(cls, value):
+        # A block that is not a mapping at all (a serializer regression emitting []
+        # is the classic slip) must not make the whole Route unparseable and halt
+        # delivery for the connection; it reads as "no filters".
+        if value is not None and not isinstance(value, (dict,)):
+            return {}
+
+        def clean_rule(rule):
+            # Each rule parses on its own: a rule that cannot be interpreted — not a
+            # dict, or a dict with invalid values — drops alone, keeping every other
+            # destination's rules alive instead of rejecting the whole Route.
+            if isinstance(rule, SourceListFilter):
+                return rule
+            if not isinstance(rule, dict):
+                return None
+            try:
+                return SourceListFilter.parse_obj(rule)
+            except ValidationError:
+                return None
+        return _canonicalize_id_map(value, clean_rule)
+
+    def filter_for(self, destination_id) -> Optional[SourceListFilter]:
+        if destination_id is None:
+            return None
+        return (self.filters or {}).get(_canonical_key(destination_id))
 
 
 class IntegrationAction(BaseModel):

@@ -1,6 +1,7 @@
 from typing import List, Optional, Dict, Any
 from typing import Union
 from uuid import UUID
+from enum import Enum
 from pydantic import BaseModel, Field, validator
 from gundi_core.schemas.v2.gundi import LogLevel
 from .core import SystemEventBaseModel
@@ -178,3 +179,140 @@ class IntegrationWebhookComplete(SystemEventBaseModel):
 
 class IntegrationWebhookFailed(SystemEventBaseModel):
     payload: WebhookExecutionFailed
+
+
+# Observation dropped for one destination (GUNDI-5178). The pipeline is forward-only:
+# an event the consumer cannot match to a trace row is acked and lost for good.
+
+
+class ObservationFilterReason(str, Enum):
+    DEVICE_WHITELIST = "device_whitelist"
+    DEVICE_BLACKLIST = "device_blacklist"
+
+    @classmethod
+    def for_mode(cls, mode) -> "ObservationFilterReason":
+        """Bridge from SourceListFilterMode values — the publisher holds a rule's
+        mode ('whitelist'), the consumer matches this enum ('device_whitelist')."""
+        return cls.DEVICE_BLACKLIST if mode == "blacklist" else cls.DEVICE_WHITELIST
+
+
+class FilteredObservation(BaseModel):
+    gundi_id: Union[UUID, str] = Field(
+        ...,
+        title="Gundi ID",
+        description="The unique ID of the observation that was dropped.",
+    )
+    related_to: Optional[Union[UUID, str]] = Field(
+        None,
+        title="Related To",
+        description="The Gundi ID of the parent object, for updates and attachments.",
+    )
+    data_provider_id: Union[UUID, str] = Field(
+        ...,
+        title="Data Provider ID",
+        description="The provider the observation came from.",
+    )
+    destination_id: Union[UUID, str] = Field(
+        ...,
+        title="Destination ID",
+        description="The destination the observation was dropped for.",
+    )
+    external_source_id: Optional[str] = Field(
+        None,
+        title="External Source ID",
+        description="The device ID the rule matched on.",
+    )
+    observation_type: Optional[str] = Field(
+        None,
+        title="Observation Type",
+        description="Stream type of the dropped observation; see StreamPrefixEnum (ev/obv/...).",
+    )
+    # Plain string so an unrecognised kind still records the drop.
+    filtered_by: Optional[str] = Field(
+        None,
+        title="Filtered By",
+        max_length=32,
+        description="Which kind of rule dropped it; see ObservationFilterReason.",
+    )
+
+    @validator("filtered_by", pre=True)
+    def _truncate_filtered_by(cls, value):
+        # max_length REJECTS, and raising inside the code that reports a drop loses
+        # the record; the trace column is 32 chars, so longer values truncate. bytes
+        # decode first — pydantic would coerce them to str AFTER this validator,
+        # bypassing the truncation and rejecting at max_length.
+        if isinstance(value, bytes):
+            value = value.decode(errors="replace")
+        if isinstance(value, str) and len(value) > 32:
+            return value[:32]
+        return value
+
+
+class ObservationFiltered(SystemEventBaseModel):
+    # The trace's `filtered_at` is the envelope's `timestamp`; the payload does not repeat it.
+    schema_version: str = Field("v1", const=True)
+    payload: FilteredObservation
+# Observation dropped because its transform raised or produced nothing (GUNDI-5178
+# phase 3). Unlike a filtered drop this IS an error and belongs in connection health.
+
+
+class FailedTransformation(BaseModel):
+    gundi_id: Union[UUID, str] = Field(
+        ...,
+        title="Gundi ID",
+        description="The unique ID of the observation whose transform failed.",
+    )
+    related_to: Optional[Union[UUID, str]] = Field(
+        None,
+        title="Related To",
+        description="The Gundi ID of the parent object, for updates and attachments.",
+    )
+    data_provider_id: Union[UUID, str] = Field(
+        ...,
+        title="Data Provider ID",
+        description="The provider the observation came from.",
+    )
+    destination_id: Union[UUID, str] = Field(
+        ...,
+        title="Destination ID",
+        description="The destination whose transform failed.",
+    )
+    observation_type: Optional[str] = Field(
+        None,
+        title="Observation Type",
+        description="Stream type of the dropped observation; see StreamPrefixEnum (ev/obv/...).",
+    )
+    error: str = Field(
+        ...,
+        title="Error",
+        # The consumer writes this into GundiTrace.error, a varchar(500).
+        max_length=500,
+        description="Human-readable description of the failure.",
+    )
+    error_type: Optional[str] = Field(
+        None,
+        title="Error Type",
+        description="The exception class name, when the failure was an exception.",
+    )
+    error_traceback: Optional[str] = Field(
+        None,
+        title="Error Traceback",
+        description="Optional traceback, as the other error payloads carry.",
+    )
+
+    @validator("error", pre=True)
+    def _truncate_error(cls, value):
+        # max_length REJECTS, and the publisher builds this from str(exception) inside
+        # its error handler — a long response body must not kill the failure report.
+        # bytes (e.g. response.content) decode first: pydantic would coerce them to
+        # str AFTER this validator, bypassing the truncation and rejecting at max_length.
+        if isinstance(value, bytes):
+            value = value.decode(errors="replace")
+        if isinstance(value, str) and len(value) > 500:
+            return value[:500]
+        return value
+
+
+class ObservationTransformationFailed(SystemEventBaseModel):
+    schema_version: str = Field("v1", const=True)
+    payload: FailedTransformation
