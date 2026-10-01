@@ -2,7 +2,7 @@ from typing import List, Optional, Dict, Any
 from typing import Union
 from uuid import UUID
 from datetime import datetime, timezone
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, ValidationError, validator
 from enum import Enum, IntEnum
 
 
@@ -433,8 +433,12 @@ class SourceListFilterMode(str, Enum):
 
 
 class SourceListFilter(BaseModel):
-    type: Optional[str] = Field(
+    # One class per filter kind, so the type is identity rather than data: pinned
+    # to keep a geo/time rule from masquerading as a device list. Still on the
+    # wire for producers and a future discriminated union.
+    type: str = Field(
         SourceFilterType.LIST.value,
+        const=True,
         example="list",
         description="Which kind of filter this is; see SourceFilterType.",
     )
@@ -464,11 +468,12 @@ class SourceListFilter(BaseModel):
         return _canonicalize_id_map(value, clean_ids)
 
     def is_device_list(self) -> bool:
-        # A usable mode is part of the gate: a rule without one never claimed
-        # whitelist semantics, and treating it as either mode loses data.
-        return (
-            self.type == SourceFilterType.LIST.value
-            and self.mode in (SourceListFilterMode.WHITELIST.value, SourceListFilterMode.BLACKLIST.value)
+        # `type` is pinned by the class, so only the mode can disqualify a rule:
+        # one without a usable mode never claimed whitelist semantics, and
+        # treating it as either mode loses data.
+        return self.mode in (
+            SourceListFilterMode.WHITELIST.value,
+            SourceListFilterMode.BLACKLIST.value,
         )
 
     def ids_for(self, provider_id) -> Optional[List[str]]:
@@ -515,9 +520,17 @@ class Route(BaseModel):
     @validator("filters", pre=True, always=True, allow_reuse=True)
     def _normalize_filters(cls, value):
         def clean_rule(rule):
-            # A non-dict rule cannot be interpreted; dropping it keeps every other
+            # Each rule parses on its own: a rule that cannot be interpreted — not a
+            # dict, or a dict with invalid values — drops alone, keeping every other
             # destination's rules alive instead of rejecting the whole Route.
-            return rule if isinstance(rule, (dict, SourceListFilter)) else None
+            if isinstance(rule, SourceListFilter):
+                return rule
+            if not isinstance(rule, dict):
+                return None
+            try:
+                return SourceListFilter.parse_obj(rule)
+            except ValidationError:
+                return None
         return _canonicalize_id_map(value, clean_rule)
 
     def filter_for(self, destination_id) -> Optional[SourceListFilter]:

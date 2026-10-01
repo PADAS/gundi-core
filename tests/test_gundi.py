@@ -130,11 +130,30 @@ def test_empty_filters_block_is_valid():
     assert route.filters == {}
 
 
-def test_filter_rejects_a_malformed_provider_map(destination_id):
+def test_direct_construction_rejects_a_malformed_provider_map():
+    # Producer-side strictness: building the rule directly fails loud. The
+    # forgiving path is Route's per-entry cleaning, covered below.
     with pytest.raises(pydantic.ValidationError):
-        Route.parse_obj(
-            {"filters": {destination_id: {"mode": "whitelist", "by_provider": "collar-001"}}}
-        )
+        SourceListFilter.parse_obj({"mode": "whitelist", "by_provider": "collar-001"})
+
+
+@pytest.mark.parametrize("bad_rule", [
+    {"mode": "whitelist", "by_provider": "collar-001"},
+    {"mode": "whitelist", "enabled": "bad"},
+    {"type": "geo", "mode": "whitelist"},
+])
+def test_invalid_rule_values_drop_only_that_entry(destination_id, bad_rule):
+    # Per-entry fail-open covers invalid VALUES too, not just non-dict rules: one
+    # destination's malformed rule must not take down its valid siblings.
+    sibling = "99999999-9999-9999-9999-999999999999"
+    route = Route.parse_obj({
+        "filters": {
+            destination_id: bad_rule,
+            sibling: {"type": "list", "mode": "whitelist", "by_provider": {}},
+        }
+    })
+    assert route.filter_for(destination_id) is None
+    assert route.filter_for(sibling) is not None
 
 
 def test_route_filter_can_be_built_directly(provider_id):
@@ -235,15 +254,15 @@ def test_uuid_keys_survive_direct_construction(destination_id, provider_id):
 
 
 def test_an_unrecognised_mode_still_parses(destination_id):
-    # Fail-open depends on this: an enum-typed field would raise here and cost the
-    # consumer the whole route payload, every other destination's rules included.
+    # Fail-open depends on this: an enum-typed mode would raise here and cost the
+    # consumer this destination's rule. It parses, is kept, and simply never speaks.
     route = Route.parse_obj(
-        {"filters": {destination_id: {"mode": "allowlist", "type": "geoboundary"}}}
+        {"filters": {destination_id: {"mode": "allowlist"}}}
     )
 
     rule = route.filters[destination_id]
     assert rule.mode == "allowlist"
-    assert rule.type == "geoboundary"
+    assert not rule.is_device_list()
 
 
 def test_a_disabled_rule_is_left_falsy_when_null(destination_id):
@@ -260,12 +279,11 @@ def test_a_list_rule_is_recognised_as_one(route_payload, destination_id):
     assert Route.parse_obj(route_payload).filter_for(destination_id).is_device_list()
 
 
-def test_a_rule_of_another_type_is_not_a_device_list(destination_id, provider_id):
-    # The gap this closes: every rule type carries a `mode`, so a geographic rule
-    # occupying the destination's slot is not self-evidently inert. Without the type
-    # check a consumer would read its `by_provider` as a device list and drop whatever
-    # that happened to contain — fail-open covers an unrecognised value, not one type's
-    # semantics applied to another.
+def test_a_rule_of_another_type_never_parses_as_a_device_list(destination_id, provider_id):
+    # The gap this closes: a geographic rule occupying the destination's slot must not
+    # have its `by_provider` read as a device list. With `type` pinned to the class,
+    # a mismatched type cannot masquerade: the entry drops (fail-open) instead of
+    # parsing with another type's semantics.
     route = Route.parse_obj(
         {
             "filters": {
@@ -278,19 +296,17 @@ def test_a_rule_of_another_type_is_not_a_device_list(destination_id, provider_id
         }
     )
 
-    rule = route.filter_for(destination_id)
-    assert rule.mode == SourceListFilterMode.WHITELIST.value
-    assert not rule.is_device_list()
+    assert route.filter_for(destination_id) is None
 
 
-def test_a_rule_with_no_type_at_all_is_not_a_device_list(destination_id):
-    # An explicit null is not the default. Nothing should read list semantics out of a
-    # rule that never claimed to be one.
+def test_a_rule_with_a_null_type_is_dropped(destination_id):
+    # An explicit null is not the default: a rule that never claimed to be a list
+    # cannot be read as one, so the entry drops rather than coercing to "list".
     route = Route.parse_obj(
         {"filters": {destination_id: {"type": None, "mode": "whitelist"}}}
     )
 
-    assert not route.filter_for(destination_id).is_device_list()
+    assert route.filter_for(destination_id) is None
 
 
 def test_one_rule_per_destination(destination_id, provider_id):
