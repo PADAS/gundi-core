@@ -1,4 +1,4 @@
-"""Tests for the routing-filter part of gundi_core.schemas.v2.gundi."""
+"""Tests for gundi_core.schemas.v2.gundi: routing filters and the Event payload."""
 
 import json
 import uuid
@@ -7,6 +7,7 @@ import pydantic
 import pytest
 
 from gundi_core.schemas.v2 import (
+    Event,
     Route,
     SourceListFilter,
     SourceListFilterMode,
@@ -462,3 +463,52 @@ def test_a_zero_device_whitelist_allows_nothing():
     )
     assert rule.allows(PROV, "anything") is False
 
+
+
+@pytest.fixture
+def event_payload(provider_id):
+    return {
+        "gundi_id": "c1b46dc1-b144-496d-9731-bfe6e8cf3ef9",
+        "data_provider_id": provider_id,
+        "owner": "a91b400b-482a-4546-8fcb-ee42b01deeb6",
+        "source_id": "afa0d606-c143-4705-955d-68133645db6d",
+        "external_source_id": "default-source",
+        "recorded_at": "2026-07-01T12:00:00+00:00",
+        "location": {"lat": -1.23455, "lon": 23.45675},
+        "title": "Forest disturbance",
+        "event_type": "gnw_forest_disturbance",
+        "event_details": {"pixel_count": 14},
+        "status": "active",
+        "priority": 300,
+        "observation_type": "ev",
+    }
+
+
+def test_event_priority_round_trips(event_payload):
+    event = Event.parse_obj(event_payload)
+    assert event.priority == 300
+
+    rebuilt = Event.parse_obj(json.loads(event.json()))
+    assert rebuilt.priority == 300
+    assert rebuilt.observation_type == "ev"
+    assert rebuilt.status == "active"
+
+
+def test_event_from_a_producer_that_predates_priority_still_parses(event_payload):
+    del event_payload["priority"]
+    event = Event.parse_obj(event_payload)
+    assert event.priority is None
+    assert json.loads(event.json())["priority"] is None
+
+
+@pytest.mark.parametrize("priority", [0, None])
+def test_event_priority_boundary_values(event_payload, priority):
+    event_payload["priority"] = priority
+    assert Event.parse_obj(event_payload).priority == priority
+
+
+@pytest.mark.parametrize("bad_priority", ["high", [300], {"level": 300}])
+def test_event_rejects_a_priority_that_is_not_a_number(event_payload, bad_priority):
+    event_payload["priority"] = bad_priority
+    with pytest.raises(pydantic.ValidationError):
+        Event.parse_obj(event_payload)
