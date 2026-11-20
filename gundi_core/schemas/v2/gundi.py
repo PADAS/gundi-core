@@ -163,6 +163,14 @@ class Event(GundiBaseModel):
         title="Event status",
         description="Events status, for example: 'new', 'resolved', etc...",
     )
+    priority: Optional[int] = Field(
+        None,
+        title="Event priority",
+        description=(
+            "Priority to create the event with, on the destination's own scale "
+            "(EarthRanger: 0, 100, 200, 300). Unset leaves the destination's default."
+        ),
+    )
     provider_metadata: Optional[Dict[str, Any]] = Field(
         None,
         title="Provider Metadata",
