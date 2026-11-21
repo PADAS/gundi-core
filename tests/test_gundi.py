@@ -7,6 +7,7 @@ import pydantic
 import pytest
 
 from gundi_core.schemas.v2 import (
+    EventPriority,
     Event,
     Route,
     SourceListFilter,
@@ -501,10 +502,26 @@ def test_event_from_a_producer_that_predates_priority_still_parses(event_payload
     assert json.loads(event.json())["priority"] is None
 
 
-@pytest.mark.parametrize("priority", [0, None])
-def test_event_priority_boundary_values(event_payload, priority):
+@pytest.mark.parametrize("priority", [0, 100, 200, 300, None])
+def test_event_accepts_every_priority_in_the_domain(event_payload, priority):
     event_payload["priority"] = priority
-    assert Event.parse_obj(event_payload).priority == priority
+    event = Event.parse_obj(event_payload)
+    assert event.priority == priority
+    # Consumers read a plain number off the wire, never an enum name.
+    assert json.loads(event.json())["priority"] == priority
+
+
+def test_event_priority_zero_is_not_the_same_as_unset(event_payload):
+    event_payload["priority"] = 0
+    assert Event.parse_obj(event_payload).priority is EventPriority.NONE
+    assert Event.parse_obj(event_payload).dict(exclude_none=True)["priority"] == 0
+
+
+@pytest.mark.parametrize("bad_priority", [-1, 1, 50, 150, 400])
+def test_event_rejects_a_number_outside_the_priority_domain(event_payload, bad_priority):
+    event_payload["priority"] = bad_priority
+    with pytest.raises(pydantic.ValidationError):
+        Event.parse_obj(event_payload)
 
 
 @pytest.mark.parametrize("bad_priority", ["high", [300], {"level": 300}])

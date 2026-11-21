@@ -22,6 +22,15 @@ class LogLevel(IntEnum):
     ERROR = 40
 
 
+class EventPriority(IntEnum):
+    """Gundi's event priority scale. The values are EarthRanger's."""
+
+    NONE = 0
+    LOW = 100
+    MEDIUM = 200
+    HIGH = 300
+
+
 class Location(BaseModel):
     lat: float = Field(..., ge=-90.0, le=90.0, title="Latitude in decimal degrees")
     lon: float = Field(..., ge=-180.0, le=360.0, title="Longitude in decimal degrees")
@@ -163,12 +172,13 @@ class Event(GundiBaseModel):
         title="Event status",
         description="Events status, for example: 'new', 'resolved', etc...",
     )
-    priority: Optional[int] = Field(
+    priority: Optional[EventPriority] = Field(
         None,
         title="Event priority",
         description=(
-            "Priority to create the event with, on the destination's own scale "
-            "(EarthRanger: 0, 100, 200, 300). Unset leaves the destination's default."
+            "Priority to create the event with: 0 (none), 100 (low), 200 (medium) "
+            "or 300 (high). Unset leaves the destination's default, which is not "
+            "the same as 0."
         ),
     )
     provider_metadata: Optional[Dict[str, Any]] = Field(
